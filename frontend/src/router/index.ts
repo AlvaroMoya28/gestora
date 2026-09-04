@@ -70,14 +70,25 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Mi cuenta' },
       },
 
+      {
+        path: 'compras',
+        name: 'purchases',
+        component: () => import('@/views/PurchasesView.vue'),
+        meta: { module: 'purchases', title: 'Compras' },
+      },
+      {
+        path: 'cuentas-por-pagar',
+        name: 'payables',
+        component: () => import('@/views/PayablesView.vue'),
+        meta: { module: 'payables', title: 'Cuentas por pagar' },
+      },
+
       // Módulos con el modelo y la navegación ya definidos, pendientes de
       // implementarse en las siguientes etapas del plan.
-      { path: 'compras', name: 'purchases', component: ComingSoon, meta: { module: 'purchases', title: 'Compras' } },
       { path: 'ventas', name: 'sales', component: ComingSoon, meta: { module: 'sales', title: 'Ventas' } },
       { path: 'produccion', name: 'production', component: ComingSoon, meta: { module: 'production', title: 'Producción' } },
       { path: 'reparaciones', name: 'repairs', component: ComingSoon, meta: { module: 'repairs', title: 'Reparaciones' } },
       { path: 'cuentas-por-cobrar', name: 'receivables', component: ComingSoon, meta: { module: 'receivables', title: 'Cuentas por cobrar' } },
-      { path: 'cuentas-por-pagar', name: 'payables', component: ComingSoon, meta: { module: 'payables', title: 'Cuentas por pagar' } },
       { path: 'ingresos', name: 'income', component: ComingSoon, meta: { module: 'income', title: 'Ingresos' } },
       { path: 'gastos', name: 'expenses', component: ComingSoon, meta: { module: 'expenses', title: 'Gastos' } },
       { path: 'reportes', name: 'reports', component: ComingSoon, meta: { module: 'reports', title: 'Reportes' } },

@@ -207,6 +207,85 @@ export interface ModuleDefinition {
   available: boolean
 }
 
+// --------------------------------------------------------------- Compras ----
+
+/** Debe coincidir con Domain.PurchaseStatus del backend. */
+export const PurchaseStatus = { Draft: 0, Confirmed: 1, Cancelled: 2 } as const
+export type PurchaseStatusValue = (typeof PurchaseStatus)[keyof typeof PurchaseStatus]
+
+export interface PurchaseItem {
+  id: number
+  productId: number
+  productCode: string
+  productName: string
+  unitAbbreviation: string
+  quantity: number
+  unitCost: number
+  taxRate: number
+  subtotal: number
+}
+
+export interface Purchase {
+  id: number
+  number: string
+  supplierId: number
+  supplierName: string
+  date: string
+  status: PurchaseStatusValue
+  statusName: string
+  subtotal: number
+  taxAmount: number
+  total: number
+  supplierInvoiceNumber: string | null
+  notes: string | null
+  items: PurchaseItem[]
+}
+
+export interface PurchaseSummary {
+  id: number
+  number: string
+  supplierName: string
+  date: string
+  status: PurchaseStatusValue
+  statusName: string
+  total: number
+}
+
+// ------------------------------------------------------ Cuentas por pagar ----
+
+/** Debe coincidir con Domain.PayableStatus del backend. */
+export const PayableStatus = { Pending: 0, PartiallyPaid: 1, Paid: 2, Cancelled: 3 } as const
+export type PayableStatusValue = (typeof PayableStatus)[keyof typeof PayableStatus]
+
+export interface Payment {
+  id: number
+  date: string
+  amount: number
+  method: string
+  reference: string | null
+  notes: string | null
+  userName: string | null
+}
+
+export interface AccountPayable {
+  id: number
+  documentNumber: string
+  supplierId: number
+  supplierName: string
+  purchaseId: number | null
+  purchaseNumber: string | null
+  issueDate: string
+  dueDate: string
+  total: number
+  paidAmount: number
+  balance: number
+  status: PayableStatusValue
+  statusName: string
+  isOverdue: boolean
+  notes: string | null
+  payments: Payment[]
+}
+
 // ------------------------------------------------------------- Dashboard ----
 
 export interface Metric {

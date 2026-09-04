@@ -36,6 +36,11 @@ public class GestoraDbContext : DbContext
     public DbSet<Product> Products => Set<Product>();
     public DbSet<InventoryMovement> InventoryMovements => Set<InventoryMovement>();
 
+    public DbSet<Purchase> Purchases => Set<Purchase>();
+    public DbSet<PurchaseItem> PurchaseItems => Set<PurchaseItem>();
+    public DbSet<AccountPayable> AccountsPayable => Set<AccountPayable>();
+    public DbSet<Payment> Payments => Set<Payment>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
@@ -52,9 +57,13 @@ public class GestoraDbContext : DbContext
         b.Entity<Supplier>().HasQueryFilter(e => e.CompanyId == TenantId);
         b.Entity<Product>().HasQueryFilter(e => e.CompanyId == TenantId);
         b.Entity<InventoryMovement>().HasQueryFilter(e => e.CompanyId == TenantId);
-        // Las entidades dependientes de User heredan el filtro por su principal.
+        b.Entity<Purchase>().HasQueryFilter(e => e.CompanyId == TenantId);
+        b.Entity<AccountPayable>().HasQueryFilter(e => e.CompanyId == TenantId);
+        // Las entidades dependientes heredan el filtro por su principal.
         b.Entity<RefreshToken>().HasQueryFilter(e => e.User.CompanyId == TenantId);
         b.Entity<RolePermission>().HasQueryFilter(e => e.Role.CompanyId == TenantId);
+        b.Entity<PurchaseItem>().HasQueryFilter(e => e.Purchase.CompanyId == TenantId);
+        b.Entity<Payment>().HasQueryFilter(e => e.AccountPayable.CompanyId == TenantId);
 
         // --- Dinero y cantidades ------------------------------------------------------
         // decimal explícito: nunca float/double para importes.
@@ -99,6 +108,27 @@ public class GestoraDbContext : DbContext
             .OnDelete(DeleteBehavior.SetNull);
 
         b.Entity<AuditLog>().HasIndex(a => new { a.CompanyId, a.OccurredAt });
+
+        // --- Compras y cuentas por pagar ----------------------------------------------
+        b.Entity<Purchase>().HasIndex(p => new { p.CompanyId, p.Number }).IsUnique();
+        b.Entity<Purchase>().HasIndex(p => new { p.CompanyId, p.Status, p.Date });
+        b.Entity<Purchase>().HasOne(p => p.Supplier).WithMany().HasForeignKey(p => p.SupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
+        // Las líneas no existen sin su documento: se borran con él mientras es borrador.
+        b.Entity<Purchase>().HasMany(p => p.Items).WithOne(i => i.Purchase)
+            .HasForeignKey(i => i.PurchaseId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<PurchaseItem>().HasOne(i => i.Product).WithMany().HasForeignKey(i => i.ProductId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        b.Entity<AccountPayable>().HasIndex(a => new { a.CompanyId, a.Status, a.DueDate });
+        b.Entity<AccountPayable>().HasOne(a => a.Supplier).WithMany().HasForeignKey(a => a.SupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<AccountPayable>().HasOne(a => a.Purchase).WithMany().HasForeignKey(a => a.PurchaseId)
+            .OnDelete(DeleteBehavior.SetNull);
+        b.Entity<AccountPayable>().HasMany(a => a.Payments).WithOne(p => p.AccountPayable)
+            .HasForeignKey(p => p.AccountPayableId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<Payment>().HasOne(p => p.User).WithMany().HasForeignKey(p => p.UserId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

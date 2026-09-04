@@ -656,3 +656,287 @@ DROP PROCEDURE MigrationsScript;
 
 COMMIT;
 
+START TRANSACTION;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE TABLE `Purchases` (
+        `Id` int NOT NULL AUTO_INCREMENT,
+        `Number` varchar(20) CHARACTER SET utf8mb4 NOT NULL,
+        `SupplierId` int NOT NULL,
+        `Date` datetime(6) NOT NULL,
+        `Status` int NOT NULL,
+        `Subtotal` decimal(18,2) NOT NULL,
+        `TaxAmount` decimal(18,2) NOT NULL,
+        `Total` decimal(18,2) NOT NULL,
+        `SupplierInvoiceNumber` varchar(60) CHARACTER SET utf8mb4 NULL,
+        `Notes` varchar(500) CHARACTER SET utf8mb4 NULL,
+        `CreatedAt` datetime(6) NOT NULL,
+        `CreatedByUserId` int NULL,
+        `UpdatedAt` datetime(6) NULL,
+        `UpdatedByUserId` int NULL,
+        `CompanyId` int NOT NULL,
+        CONSTRAINT `PK_Purchases` PRIMARY KEY (`Id`),
+        CONSTRAINT `FK_Purchases_Suppliers_SupplierId` FOREIGN KEY (`SupplierId`) REFERENCES `Suppliers` (`Id`) ON DELETE RESTRICT
+    ) CHARACTER SET=utf8mb4;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE TABLE `AccountsPayable` (
+        `Id` int NOT NULL AUTO_INCREMENT,
+        `SupplierId` int NOT NULL,
+        `PurchaseId` int NULL,
+        `DocumentNumber` varchar(60) CHARACTER SET utf8mb4 NOT NULL,
+        `IssueDate` datetime(6) NOT NULL,
+        `DueDate` datetime(6) NOT NULL,
+        `Total` decimal(18,2) NOT NULL,
+        `PaidAmount` decimal(18,2) NOT NULL,
+        `Balance` decimal(18,2) NOT NULL,
+        `Status` int NOT NULL,
+        `Notes` varchar(500) CHARACTER SET utf8mb4 NULL,
+        `CreatedAt` datetime(6) NOT NULL,
+        `CreatedByUserId` int NULL,
+        `UpdatedAt` datetime(6) NULL,
+        `UpdatedByUserId` int NULL,
+        `CompanyId` int NOT NULL,
+        CONSTRAINT `PK_AccountsPayable` PRIMARY KEY (`Id`),
+        CONSTRAINT `FK_AccountsPayable_Purchases_PurchaseId` FOREIGN KEY (`PurchaseId`) REFERENCES `Purchases` (`Id`) ON DELETE SET NULL,
+        CONSTRAINT `FK_AccountsPayable_Suppliers_SupplierId` FOREIGN KEY (`SupplierId`) REFERENCES `Suppliers` (`Id`) ON DELETE RESTRICT
+    ) CHARACTER SET=utf8mb4;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE TABLE `PurchaseItems` (
+        `Id` int NOT NULL AUTO_INCREMENT,
+        `PurchaseId` int NOT NULL,
+        `ProductId` int NOT NULL,
+        `Quantity` decimal(18,4) NOT NULL,
+        `UnitCost` decimal(18,2) NOT NULL,
+        `TaxRate` decimal(18,2) NOT NULL,
+        `Subtotal` decimal(18,2) NOT NULL,
+        `CreatedAt` datetime(6) NOT NULL,
+        `CreatedByUserId` int NULL,
+        `UpdatedAt` datetime(6) NULL,
+        `UpdatedByUserId` int NULL,
+        CONSTRAINT `PK_PurchaseItems` PRIMARY KEY (`Id`),
+        CONSTRAINT `FK_PurchaseItems_Products_ProductId` FOREIGN KEY (`ProductId`) REFERENCES `Products` (`Id`) ON DELETE RESTRICT,
+        CONSTRAINT `FK_PurchaseItems_Purchases_PurchaseId` FOREIGN KEY (`PurchaseId`) REFERENCES `Purchases` (`Id`) ON DELETE CASCADE
+    ) CHARACTER SET=utf8mb4;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE TABLE `Payments` (
+        `Id` int NOT NULL AUTO_INCREMENT,
+        `AccountPayableId` int NOT NULL,
+        `Date` datetime(6) NOT NULL,
+        `Amount` decimal(18,2) NOT NULL,
+        `Method` varchar(40) CHARACTER SET utf8mb4 NOT NULL,
+        `Reference` varchar(80) CHARACTER SET utf8mb4 NULL,
+        `Notes` varchar(250) CHARACTER SET utf8mb4 NULL,
+        `UserId` int NULL,
+        `CreatedAt` datetime(6) NOT NULL,
+        `CreatedByUserId` int NULL,
+        `UpdatedAt` datetime(6) NULL,
+        `UpdatedByUserId` int NULL,
+        CONSTRAINT `PK_Payments` PRIMARY KEY (`Id`),
+        CONSTRAINT `FK_Payments_AccountsPayable_AccountPayableId` FOREIGN KEY (`AccountPayableId`) REFERENCES `AccountsPayable` (`Id`) ON DELETE CASCADE,
+        CONSTRAINT `FK_Payments_Users_UserId` FOREIGN KEY (`UserId`) REFERENCES `Users` (`Id`) ON DELETE SET NULL
+    ) CHARACTER SET=utf8mb4;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE INDEX `IX_AccountsPayable_CompanyId_Status_DueDate` ON `AccountsPayable` (`CompanyId`, `Status`, `DueDate`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE INDEX `IX_AccountsPayable_PurchaseId` ON `AccountsPayable` (`PurchaseId`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE INDEX `IX_AccountsPayable_SupplierId` ON `AccountsPayable` (`SupplierId`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE INDEX `IX_Payments_AccountPayableId` ON `Payments` (`AccountPayableId`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE INDEX `IX_Payments_UserId` ON `Payments` (`UserId`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE INDEX `IX_PurchaseItems_ProductId` ON `PurchaseItems` (`ProductId`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE INDEX `IX_PurchaseItems_PurchaseId` ON `PurchaseItems` (`PurchaseId`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE UNIQUE INDEX `IX_Purchases_CompanyId_Number` ON `Purchases` (`CompanyId`, `Number`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE INDEX `IX_Purchases_CompanyId_Status_Date` ON `Purchases` (`CompanyId`, `Status`, `Date`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    CREATE INDEX `IX_Purchases_SupplierId` ON `Purchases` (`SupplierId`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260904203142_AddPurchasingAndPayables') THEN
+
+    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+    VALUES ('20260904203142_AddPurchasingAndPayables', '8.0.13');
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+COMMIT;
+

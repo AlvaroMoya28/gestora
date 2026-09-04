@@ -1,5 +1,6 @@
 import { http } from './http'
 import type {
+  AccountPayable,
   AuditEntry,
   AuthResponse,
   AuthenticatedUser,
@@ -10,6 +11,8 @@ import type {
   ModuleDefinition,
   PagedResult,
   Product,
+  Purchase,
+  PurchaseSummary,
   Role,
   Supplier,
   Unit,
@@ -110,6 +113,25 @@ export const usersApi = {
   setActive: (id: number, active: boolean) =>
     http.post<User>(`/usuarios/${id}/${active ? 'activar' : 'inactivar'}`).then((r) => r.data),
   roles: () => http.get<Role[]>('/roles').then((r) => r.data),
+}
+
+export const purchasesApi = {
+  list: (query?: ListQuery) =>
+    http.get<PagedResult<PurchaseSummary>>('/compras', { params: clean(query) }).then((r) => r.data),
+  get: (id: number) => http.get<Purchase>(`/compras/${id}`).then((r) => r.data),
+  create: (payload: Record<string, unknown>) => http.post<Purchase>('/compras', payload).then((r) => r.data),
+  update: (id: number, payload: Record<string, unknown>) =>
+    http.put<Purchase>(`/compras/${id}`, payload).then((r) => r.data),
+  confirm: (id: number) => http.post<Purchase>(`/compras/${id}/confirmar`).then((r) => r.data),
+  cancel: (id: number) => http.post<Purchase>(`/compras/${id}/cancelar`).then((r) => r.data),
+}
+
+export const payablesApi = {
+  list: (query?: ListQuery) =>
+    http.get<PagedResult<AccountPayable>>('/cuentas-por-pagar', { params: clean(query) }).then((r) => r.data),
+  get: (id: number) => http.get<AccountPayable>(`/cuentas-por-pagar/${id}`).then((r) => r.data),
+  registerPayment: (id: number, payload: Record<string, unknown>) =>
+    http.post<AccountPayable>(`/cuentas-por-pagar/${id}/pagos`, payload).then((r) => r.data),
 }
 
 export const auditApi = {

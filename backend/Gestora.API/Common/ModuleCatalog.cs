@@ -23,13 +23,13 @@ public static class ModuleCatalog
         new("products",    "Productos",          "Catálogo",    "box",       true),
         new("inventory",   "Inventario",         "Catálogo",    "layers",    true),
 
-        new("purchases",   "Compras",            "Operación",   "cart",      false),
+        new("purchases",   "Compras",            "Operación",   "cart",      true),
         new("sales",       "Ventas",             "Operación",   "receipt",   false),
         new("production",  "Producción",         "Operación",   "factory",   false),
         new("repairs",     "Reparaciones",       "Operación",   "wrench",    false),
 
         new("receivables", "Cuentas por cobrar", "Finanzas",    "arrow-in",  false),
-        new("payables",    "Cuentas por pagar",  "Finanzas",    "arrow-out", false),
+        new("payables",    "Cuentas por pagar",  "Finanzas",    "arrow-out", true),
         new("income",      "Ingresos",           "Finanzas",    "plus",      false),
         new("expenses",    "Gastos",             "Finanzas",    "minus",     false),
 

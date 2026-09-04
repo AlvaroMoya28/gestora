@@ -12,12 +12,10 @@ const route = useRoute()
 const title = computed(() => (route.meta.title as string) ?? 'Módulo')
 
 const roadmap: Record<string, string> = {
-  purchases: 'Órdenes de compra, recepción de mercadería y factura del proveedor, con entrada automática al inventario.',
   sales: 'Pedidos, ventas, registro de la factura electrónica externa y salida de inventario.',
   production: 'Recetas de materiales, órdenes de producción y consumo de materia prima contra producto terminado.',
   repairs: 'Órdenes de reparación con diagnóstico, materiales utilizados, costo y entrega.',
   receivables: 'Saldos por cobrar por cliente y factura, con pagos parciales y vencimientos.',
-  payables: 'Saldos por pagar por proveedor y factura, con pagos parciales y vencimientos.',
   income: 'Ingresos que no provienen de una venta.',
   expenses: 'Gastos operativos por categoría, con comprobante y método de pago.',
   reports: 'Reportes de ventas, compras, inventario, producción y finanzas, con exportación.',
