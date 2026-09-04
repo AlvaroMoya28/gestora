@@ -1,0 +1,26 @@
+-- ============================================================
+-- Cronograma: los hitos clave del proceso PAA de una convocatoria
+-- (envío de folletos, capacitaciones, día de aplicación, corrección,
+-- publicación de resultados...), para que esa fecha viva en un solo
+-- lugar del sistema en vez de en la cabeza de cada quien o en un Excel
+-- aparte. Un hito puede ser de un solo día (fecha_fin NULL) o cubrir
+-- un rango (por ejemplo, varios días de capacitaciones).
+-- ============================================================
+
+CREATE TABLE hitos_proceso (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    convocatoria_id INT NOT NULL,
+
+    titulo          VARCHAR(150) NOT NULL,
+    descripcion     TEXT NULL,
+    fecha_inicio    DATE NOT NULL,
+    fecha_fin       DATE NULL,   -- NULL = hito de un solo día (fecha_inicio)
+    color           VARCHAR(20) NOT NULL DEFAULT 'azul',
+
+    creado_por      VARCHAR(150) NULL,
+    creado_en       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (convocatoria_id) REFERENCES convocatorias(id),
+    INDEX idx_hitos_convocatoria_fecha (convocatoria_id, fecha_inicio)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
