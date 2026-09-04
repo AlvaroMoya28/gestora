@@ -1,0 +1,226 @@
+/*
+ * Sistema visual de Gestora.
+ *
+ * Todo el color, el espaciado y la tipografía salen de estas variables: cambiar la
+ * identidad de la aplicación es tocar este bloque, no las vistas. Sin framework CSS
+ * externo, para no arrastrar peso ni estilos que después haya que sobrescribir.
+ */
+
+:root {
+  /* Marca: verde azulado sobrio, acento ámbar para lo que exige atención. */
+  --brand-50: #eef7f5;
+  --brand-100: #d3ece7;
+  --brand-200: #a7d9d0;
+  --brand-500: #10786c;
+  --brand-600: #0d6459;
+  --brand-700: #0a4f47;
+
+  --accent-100: #fdf2dc;
+  --accent-500: #c4820a;
+  --accent-600: #a06a05;
+
+  --danger-100: #fdeaea;
+  --danger-500: #c53434;
+  --danger-600: #a52a2a;
+
+  --success-100: #e7f6ec;
+  --success-600: #1c7a44;
+
+  --info-100: #e8f1fb;
+  --info-600: #1f5fa8;
+
+  /* Neutros */
+  --ink-900: #16191d;
+  --ink-700: #333a44;
+  --ink-500: #5d6672;
+  --ink-400: #808a97;
+  --ink-300: #c3cad3;
+  --ink-200: #e2e6eb;
+  --ink-100: #eef1f4;
+  --canvas: #f5f7f9;
+  --surface: #ffffff;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+
+  --shadow-sm: 0 1px 2px rgba(22, 25, 29, 0.06);
+  --shadow: 0 4px 14px rgba(22, 25, 29, 0.08);
+  --shadow-lg: 0 18px 48px rgba(22, 25, 29, 0.18);
+
+  --sidebar-width: 246px;
+  --header-height: 60px;
+
+  --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Mono', ui-monospace, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-900);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure {
+  margin: 0;
+}
+
+a {
+  color: var(--brand-600);
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* ------------------------------------------------------------- Formularios ---- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field > label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-700);
+  letter-spacing: 0.01em;
+}
+
+.field .hint {
+  font-size: 12px;
+  color: var(--ink-400);
+}
+
+.field .error {
+  font-size: 12px;
+  color: var(--danger-600);
+}
+
+.control {
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--ink-300);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.control:hover:not(:disabled) {
+  border-color: var(--ink-400);
+}
+
+.control:focus {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px var(--brand-100);
+}
+
+.control:disabled {
+  background: var(--ink-100);
+  color: var(--ink-400);
+  cursor: not-allowed;
+}
+
+.control.is-invalid {
+  border-color: var(--danger-500);
+}
+
+.control.is-invalid:focus {
+  box-shadow: 0 0 0 3px var(--danger-100);
+}
+
+select.control {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235d6672' d='M2.5 4.5 6 8l3.5-3.5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+textarea.control {
+  resize: vertical;
+  min-height: 74px;
+}
+
+/* --------------------------------------------------------------- Utilidades ---- */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-grid .span-2 {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 620px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.muted {
+  color: var(--ink-500);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

@@ -1,0 +1,36 @@
+# --- Secretos: nunca se versionan --------------------------------------------
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Local.json
+.env
+.env.local
+.env.*.local
+*.pfx
+*.key
+
+# --- .NET --------------------------------------------------------------------
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+
+# --- Node --------------------------------------------------------------------
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# --- Base de datos -----------------------------------------------------------
+database/backups/*.sql
+!database/backups/.gitkeep
+
+# --- Editores y sistema ------------------------------------------------------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+Thumbs.db
+.DS_Store
