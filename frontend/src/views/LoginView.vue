@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseField from '@/components/ui/BaseField.vue'
+import BrandMark from '@/components/ui/BrandMark.vue'
 import { errorMessage, fieldErrors } from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 
@@ -35,7 +36,7 @@ async function submit() {
   <div class="login">
     <section class="pitch">
       <div class="brand">
-        <span class="mark">G</span>
+        <BrandMark :size="34" tone="light" />
         <strong>Gestora</strong>
       </div>
 
@@ -122,17 +123,6 @@ async function submit() {
   align-items: center;
   gap: 11px;
   margin-bottom: 44px;
-}
-
-.mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.18);
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: 17px;
 }
 
 .brand strong {

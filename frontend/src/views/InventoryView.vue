@@ -260,7 +260,7 @@ onMounted(() => refresh().catch((error) => notifications.error(errorMessage(erro
             :class="{ 'is-invalid': invalid }"
             type="number"
             min="0.0001"
-            step="0.01"
+            step="any"
             required
           />
         </BaseField>

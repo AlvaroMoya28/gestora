@@ -5,8 +5,15 @@ using Gestora.API.Data;
 using Gestora.API.Modules.Audit;
 using Gestora.API.Modules.Auth;
 using Gestora.API.Modules.Catalog;
+using Gestora.API.Modules.Finance;
 using Gestora.API.Modules.Inventory;
+using Gestora.API.Modules.Platform;
+using Gestora.API.Modules.Production;
 using Gestora.API.Modules.Purchasing;
+using Gestora.API.Modules.Repairs;
+using Gestora.API.Modules.Reports;
+using Gestora.API.Modules.Sales;
+using Gestora.API.Modules.Settings;
 using Gestora.API.Modules.Users;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
@@ -56,6 +63,15 @@ builder.Services.AddScoped<LookupService>();
 builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<PurchaseService>();
 builder.Services.AddScoped<PayableService>();
+builder.Services.AddScoped<SaleService>();
+builder.Services.AddScoped<ReceivableService>();
+builder.Services.AddScoped<ProductionService>();
+builder.Services.AddScoped<RepairService>();
+builder.Services.AddScoped<FinanceService>();
+builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<SettingsService>();
+builder.Services.AddScoped<CompanyService>();
+builder.Services.AddScoped<SubscriptionService>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

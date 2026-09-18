@@ -23,9 +23,24 @@ export function useFormat() {
 
   const integer = (value: number | null | undefined) => number(value, 0)
 
+  /**
+   * Convierte a Date lo que llega de la API.
+   *
+   * Una fecha sin hora ("2026-09-19") la interpreta JavaScript como medianoche UTC, y
+   * en Costa Rica eso cae el día anterior a las 6 p.m.: un vencimiento del 19 se
+   * mostraría como 18. Por eso las fechas sin hora se arman como fecha local.
+   */
+  const parse = (value: string) => {
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.exec(value)
+    if (!dateOnly) return new Date(value)
+
+    const [year, month, day] = value.split('-').map(Number)
+    return new Date(year, month - 1, day)
+  }
+
   const dateTime = (value: string | null | undefined) =>
     value
-      ? new Date(value).toLocaleString('es-CR', {
+      ? parse(value).toLocaleString('es-CR', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
@@ -35,7 +50,7 @@ export function useFormat() {
       : '—'
 
   const date = (value: string | null | undefined) =>
-    value ? new Date(value).toLocaleDateString('es-CR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+    value ? parse(value).toLocaleDateString('es-CR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
   /** Aplica el formato que el backend indicó para cada métrica del panel. */
   const metric = (value: number, format: string) => {

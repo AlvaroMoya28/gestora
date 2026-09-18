@@ -37,10 +37,17 @@ public record AuthenticatedUserDto(
     string Email,
     string? Phone,
     int RoleId,
+    /// <summary>Clave estable del rol; el frontend decide con esto, no con el nombre.</summary>
+    string RoleKey,
     string RoleName,
+    /// <summary>"Platform" o "Company": determina qué shell y qué menú se dibuja.</summary>
+    string Scope,
+    /// <summary>Empresa que se está viendo. 0 cuando el usuario está en la plataforma.</summary>
     int CompanyId,
-    string CompanyName,
+    string? CompanyName,
     string Currency,
+    /// <summary>El desarrollador está viendo el sistema como esta empresa.</summary>
+    bool IsImpersonating,
     IReadOnlyList<ModulePermissionDto> Modules);
 
 public record AuthResponse(string AccessToken, string RefreshToken, int ExpiresInSeconds, AuthenticatedUserDto User);

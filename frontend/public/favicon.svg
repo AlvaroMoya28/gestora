@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Gestora">
+  <defs>
+    <mask id="g">
+      <rect width="32" height="32" fill="white"/>
+      <path d="M22 10H14a6 6 0 0 0-6 6v1a6 6 0 0 0 6 6h8v-6h-6" fill="none" stroke="black" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <rect x="1" y="1" width="30" height="30" rx="7" fill="#10786c" mask="url(#g)"/>
+</svg>

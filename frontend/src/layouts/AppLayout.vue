@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import BrandMark from '@/components/ui/BrandMark.vue'
 import { useAuthStore } from '@/stores/auth'
 
 /**
@@ -28,16 +29,30 @@ async function logout() {
   await auth.logout()
   router.push({ name: 'login' })
 }
+
+/** Devuelve al desarrollador de la vista de una empresa a su panel de plataforma. */
+const returning = ref(false)
+async function backToPlatform() {
+  returning.value = true
+  try {
+    await auth.backToPlatform()
+    router.push({ name: 'platform_companies' })
+  } finally {
+    returning.value = false
+  }
+}
 </script>
 
 <template>
   <div class="shell">
     <aside :class="['sidebar', { open: sidebarOpen }]">
       <div class="brand">
-        <span class="mark">G</span>
+        <BrandMark :size="32" :tone="auth.isPlatform ? 'platform' : 'brand'" />
         <div>
           <strong>Gestora</strong>
-          <small class="muted">{{ auth.user?.companyName }}</small>
+          <small class="muted">
+            {{ auth.isPlatform ? 'Administración de la plataforma' : auth.user?.companyName }}
+          </small>
         </div>
       </div>
 
@@ -65,6 +80,21 @@ async function logout() {
     <div v-if="sidebarOpen" class="scrim" @click="sidebarOpen = false" />
 
     <div class="main">
+      <!--
+        Aviso permanente mientras el desarrollador ve el sistema como un cliente.
+        Debe ser imposible confundirse sobre en qué empresa se está trabajando.
+      -->
+      <div v-if="auth.isImpersonating" class="impersonation">
+        <AppIcon name="eye" :size="17" />
+        <span>
+          Viendo el sistema como <strong>{{ auth.user?.companyName }}</strong>.
+          Todo lo que haga afecta los datos reales de esta empresa.
+        </span>
+        <button type="button" :disabled="returning" @click="backToPlatform">
+          {{ returning ? 'Volviendo…' : 'Volver a Gestora' }}
+        </button>
+      </div>
+
       <header class="topbar">
         <button class="icon-btn only-mobile" aria-label="Abrir menú" @click="sidebarOpen = true">
           <AppIcon name="menu" :size="20" />
@@ -127,17 +157,40 @@ async function logout() {
   border-bottom: 1px solid var(--ink-200);
 }
 
-.mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: var(--brand-500);
+.impersonation {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 22px;
+  background: var(--accent-500);
   color: #fff;
-  display: grid;
-  place-items: center;
+  font-size: 13px;
+}
+
+.impersonation strong {
   font-weight: 700;
-  font-size: 16px;
-  flex-shrink: 0;
+}
+
+.impersonation button {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  padding: 4px 11px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.impersonation button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.impersonation button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .brand strong {

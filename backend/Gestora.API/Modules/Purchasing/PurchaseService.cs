@@ -46,7 +46,7 @@ public class PurchaseService(GestoraDbContext db, IAuditService audit, Inventory
 
     public async Task<PurchaseDto> CreateAsync(PurchaseRequest request)
     {
-        await ValidateSupplierAsync(request.SupplierId);
+        var supplier = await ValidateSupplierAsync(request.SupplierId);
 
         var purchase = new Purchase
         {
@@ -57,12 +57,13 @@ public class PurchaseService(GestoraDbContext db, IAuditService audit, Inventory
             Notes = request.Notes?.Trim(),
             Status = PurchaseStatus.Draft
         };
+        ApplyTerms(purchase, request, supplier);
 
         await ApplyItemsAsync(purchase, request.Items);
         db.Purchases.Add(purchase);
 
         audit.Track("Creación", "purchases", nameof(Purchase), null,
-            $"Compra {purchase.Number} a {(await db.Suppliers.FindAsync(request.SupplierId))?.Name}");
+            $"Compra {purchase.Number} a {supplier.Name}");
         await db.SaveChangesAsync();
 
         return await GetAsync(purchase.Id);
@@ -74,12 +75,13 @@ public class PurchaseService(GestoraDbContext db, IAuditService audit, Inventory
         if (purchase.Status != PurchaseStatus.Draft)
             throw new ApiException("Solo se puede editar una compra mientras está en borrador.");
 
-        await ValidateSupplierAsync(request.SupplierId);
+        var supplier = await ValidateSupplierAsync(request.SupplierId);
 
         purchase.SupplierId = request.SupplierId;
         purchase.Date = request.Date ?? purchase.Date;
         purchase.SupplierInvoiceNumber = request.SupplierInvoiceNumber?.Trim();
         purchase.Notes = request.Notes?.Trim();
+        ApplyTerms(purchase, request, supplier);
 
         db.PurchaseItems.RemoveRange(purchase.Items);
         purchase.Items.Clear();
@@ -105,8 +107,6 @@ public class PurchaseService(GestoraDbContext db, IAuditService audit, Inventory
             var purchase = await LoadAsync(id);
             if (purchase.Status != PurchaseStatus.Draft)
                 throw new ApiException("La compra ya fue confirmada o está cancelada.");
-
-            var supplier = await db.Suppliers.FirstAsync(s => s.Id == purchase.SupplierId);
 
             foreach (var item in purchase.Items)
             {
@@ -136,7 +136,7 @@ public class PurchaseService(GestoraDbContext db, IAuditService audit, Inventory
                 PurchaseId = purchase.Id,
                 DocumentNumber = purchase.SupplierInvoiceNumber ?? purchase.Number,
                 IssueDate = purchase.Date,
-                DueDate = purchase.Date.AddDays(Math.Max(supplier.CreditDays, 0)),
+                DueDate = DueDateOf(purchase),
                 Total = purchase.Total,
                 PaidAmount = 0,
                 Balance = purchase.Total,
@@ -192,11 +192,23 @@ public class PurchaseService(GestoraDbContext db, IAuditService audit, Inventory
         purchase.Total = purchase.Subtotal + purchase.TaxAmount;
     }
 
-    private async Task ValidateSupplierAsync(int supplierId)
+    /// <summary>
+    /// Condición de pago de la compra. Lo que venga en la petición manda; lo que se
+    /// omita se toma del proveedor, que es la condición habitual con él. Guardarlo en
+    /// la compra —y no leerlo del proveedor al confirmar— permite negociar un plazo
+    /// distinto en una compra puntual sin alterar la ficha del proveedor.
+    /// </summary>
+    private static void ApplyTerms(Purchase purchase, PurchaseRequest request, Supplier supplier)
     {
-        var exists = await db.Suppliers.AnyAsync(s => s.Id == supplierId && s.IsActive);
-        if (!exists) throw new ApiException("El proveedor seleccionado no es válido.");
+        purchase.PaymentTerm = request.PaymentTerm ?? supplier.PaymentTerm;
+        purchase.CreditDays = purchase.PaymentTerm == PaymentTerm.Credit
+            ? Math.Max(request.CreditDays ?? supplier.CreditDays, 0)
+            : 0;
     }
+
+    private async Task<Supplier> ValidateSupplierAsync(int supplierId) =>
+        await db.Suppliers.AsNoTracking().FirstOrDefaultAsync(s => s.Id == supplierId && s.IsActive)
+        ?? throw new ApiException("El proveedor seleccionado no es válido.");
 
     private async Task<string> ResolveNumberAsync()
     {
@@ -211,12 +223,15 @@ public class PurchaseService(GestoraDbContext db, IAuditService audit, Inventory
             .FirstOrDefaultAsync(p => p.Id == id)
         ?? throw ApiException.NotFound("La compra");
 
+    /// <summary>Cuándo vence: la fecha del documento más su plazo. Una sola definición.</summary>
+    private static DateTime DueDateOf(Purchase p) => p.Date.AddDays(Math.Max(p.CreditDays, 0));
+
     private static PurchaseSummaryDto MapSummary(Purchase p) => new(p.Id, p.Number, p.Supplier.Name,
-        p.Date, p.Status, StatusName(p.Status), p.Total);
+        p.Date, DueDateOf(p), p.Status, StatusName(p.Status), p.PaymentTerm, p.Total);
 
     private static PurchaseDto Map(Purchase p) => new(p.Id, p.Number, p.SupplierId, p.Supplier.Name,
-        p.Date, p.Status, StatusName(p.Status), p.Subtotal, p.TaxAmount, p.Total,
-        p.SupplierInvoiceNumber, p.Notes,
+        p.Date, p.Status, StatusName(p.Status), p.PaymentTerm, p.CreditDays, DueDateOf(p),
+        p.Subtotal, p.TaxAmount, p.Total, p.SupplierInvoiceNumber, p.Notes,
         p.Items.Select(i => new PurchaseItemDto(i.Id, i.ProductId, i.Product.Code, i.Product.Name,
             i.Product.Unit.Abbreviation, i.Quantity, i.UnitCost, i.TaxRate, i.Subtotal)).ToList());
 

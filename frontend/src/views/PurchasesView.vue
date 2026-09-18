@@ -9,12 +9,25 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import type { Column } from '@/components/ui/table'
 import { useFormat } from '@/composables/useFormat'
+import {
+  DUE_CUSTOM,
+  DUE_OPTIONS,
+  todayIso,
+  usePaymentTerms,
+} from '@/composables/usePaymentTerms'
 import { useResourceList } from '@/composables/useResourceList'
 import { productsApi, purchasesApi, suppliersApi } from '@/services/api'
 import { errorMessage, fieldErrors } from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
-import { PurchaseStatus, type Product, type Purchase, type PurchaseSummary, type Supplier } from '@/types'
+import {
+  PaymentTerm,
+  PurchaseStatus,
+  type Product,
+  type Purchase,
+  type PurchaseSummary,
+  type Supplier,
+} from '@/types'
 
 const auth = useAuthStore()
 const notifications = useNotificationStore()
@@ -27,12 +40,14 @@ const products = ref<Product[]>([])
 const stockedProducts = computed(() => products.value.filter((p) => p.isActive))
 
 const columns: Column[] = [
-  { key: 'number', label: 'Número', width: '110px' },
-  { key: 'date', label: 'Fecha', width: '120px' },
+  { key: 'number', label: 'Número', width: '105px' },
+  { key: 'date', label: 'Fecha', width: '115px' },
   { key: 'supplier', label: 'Proveedor' },
-  { key: 'status', label: 'Estado', width: '130px' },
-  { key: 'total', label: 'Total', align: 'right', width: '130px' },
-  { key: 'actions', label: '', align: 'right', width: '190px' },
+  { key: 'term', label: 'Condición', width: '105px' },
+  { key: 'dueDate', label: 'Vence', width: '115px' },
+  { key: 'status', label: 'Estado', width: '115px' },
+  { key: 'total', label: 'Total', align: 'right', width: '125px' },
+  { key: 'actions', label: '', align: 'right', width: '185px' },
 ]
 
 const statusTone = (status: number) =>
@@ -56,8 +71,23 @@ const modalOpen = ref(false)
 const editing = ref<Purchase | null>(null)
 const saving = ref(false)
 const errors = ref<Record<string, string>>({})
-const form = reactive({ supplierId: 0, supplierInvoiceNumber: '', notes: '' })
+const form = reactive({
+  supplierId: 0,
+  date: todayIso(),
+  supplierInvoiceNumber: '',
+  notes: '',
+})
 const rows = ref<ItemRow[]>([])
+
+const terms = usePaymentTerms(computed(() => form.date))
+
+/** Al elegir proveedor se trae su condición habitual, que igual se puede cambiar. */
+function onSupplierChange() {
+  const supplier = suppliers.value.find((s) => s.id === Number(form.supplierId))
+  if (!supplier) return
+
+  terms.loadFrom(supplier.creditDays, supplier.paymentTerm === PaymentTerm.Credit)
+}
 
 function productOf(id: number) {
   return products.value.find((p) => p.id === id)
@@ -81,7 +111,13 @@ const totals = computed(() => {
 function openCreate() {
   editing.value = null
   errors.value = {}
-  Object.assign(form, { supplierId: suppliers.value[0]?.id ?? 0, supplierInvoiceNumber: '', notes: '' })
+  Object.assign(form, {
+    supplierId: suppliers.value[0]?.id ?? 0,
+    date: todayIso(),
+    supplierInvoiceNumber: '',
+    notes: '',
+  })
+  onSupplierChange()
   rows.value = [emptyRow()]
   modalOpen.value = true
 }
@@ -97,9 +133,11 @@ async function openView(summary: PurchaseSummary) {
   errors.value = {}
   Object.assign(form, {
     supplierId: purchase.supplierId,
+    date: purchase.date.slice(0, 10),
     supplierInvoiceNumber: purchase.supplierInvoiceNumber ?? '',
     notes: purchase.notes ?? '',
   })
+  terms.loadFrom(purchase.creditDays, purchase.paymentTerm === PaymentTerm.Credit)
   rows.value = purchase.items.map((item) => ({
     productId: item.productId,
     quantity: item.quantity,
@@ -125,6 +163,9 @@ async function save() {
   try {
     const payload = {
       supplierId: Number(form.supplierId),
+      date: form.date,
+      paymentTerm: terms.isCredit.value ? PaymentTerm.Credit : PaymentTerm.Cash,
+      creditDays: terms.creditDays.value,
       supplierInvoiceNumber: form.supplierInvoiceNumber || null,
       notes: form.notes || null,
       items: rows.value.map((row) => ({
@@ -239,6 +280,14 @@ onMounted(async () => {
 
       <template #supplier="{ row }">{{ row.supplierName }}</template>
 
+      <template #term="{ row }">
+        <span class="muted">{{ row.paymentTerm === PaymentTerm.Credit ? 'Crédito' : 'Contado' }}</span>
+      </template>
+
+      <template #dueDate="{ row }">
+        <span class="num muted">{{ date(row.dueDate) }}</span>
+      </template>
+
       <template #status="{ row }">
         <StatusBadge :tone="statusTone(row.status)">{{ row.statusName }}</StatusBadge>
       </template>
@@ -274,7 +323,15 @@ onMounted(async () => {
       <form id="purchase-form" @submit.prevent="save">
         <div class="form-grid">
           <BaseField v-slot="{ id, invalid }" label="Proveedor" required :error="errors.supplierId">
-            <select :id="id" v-model.number="form.supplierId" class="control" :class="{ 'is-invalid': invalid }" required :disabled="!isDraft">
+            <select
+              :id="id"
+              v-model.number="form.supplierId"
+              class="control"
+              :class="{ 'is-invalid': invalid }"
+              required
+              :disabled="!isDraft"
+              @change="onSupplierChange"
+            >
               <option :value="0" disabled>Seleccione…</option>
               <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
                 {{ supplier.name }}
@@ -282,9 +339,46 @@ onMounted(async () => {
             </select>
           </BaseField>
 
+          <BaseField
+            v-slot="{ id }"
+            label="Fecha de la compra"
+            required
+            hint="La de la factura del proveedor, no la de hoy. Desde ella se cuenta el plazo."
+          >
+            <input :id="id" v-model="form.date" class="control" type="date" required :disabled="!isDraft" />
+          </BaseField>
+
           <BaseField v-slot="{ id }" label="Número de factura del proveedor">
             <input :id="id" v-model="form.supplierInvoiceNumber" class="control" maxlength="60" :disabled="!isDraft" />
           </BaseField>
+
+          <BaseField v-slot="{ id }" label="¿Cuándo se paga?" hint="Plazo acordado con el proveedor.">
+            <select :id="id" v-model="terms.option.value" class="control" :disabled="!isDraft">
+              <option v-for="opt in DUE_OPTIONS" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </BaseField>
+
+          <BaseField v-if="terms.option.value === DUE_CUSTOM" v-slot="{ id }" label="Vence el">
+            <input
+              :id="id"
+              v-model="terms.customDate.value"
+              class="control"
+              type="date"
+              :min="form.date"
+              :disabled="!isDraft"
+            />
+          </BaseField>
+
+          <!-- Siempre a la vista la fecha concreta: es la que va a reclamar el proveedor. -->
+          <p class="due span2">
+            Hay que pagarla a más tardar el
+            <strong>{{ date(terms.dueDateIso.value) }}</strong>
+            <span v-if="terms.isCredit.value" class="muted">
+              · {{ terms.creditDays.value }} día(s) de plazo
+            </span>
+          </p>
 
           <BaseField v-slot="{ id }" label="Observaciones" span2>
             <textarea :id="id" v-model="form.notes" class="control" maxlength="500" :disabled="!isDraft" />
@@ -308,7 +402,7 @@ onMounted(async () => {
                 {{ product.code }} · {{ product.name }}
               </option>
             </select>
-            <input v-model.number="row.quantity" class="control text-right" type="number" min="0.0001" step="0.01" :disabled="!isDraft" />
+            <input v-model.number="row.quantity" class="control text-right" type="number" min="0.0001" step="any" :disabled="!isDraft" />
             <input v-model.number="row.unitCost" class="control text-right" type="number" min="0" step="0.01" :disabled="!isDraft" />
             <input v-model.number="row.taxRate" class="control text-right" type="number" min="0" max="100" step="0.01" :disabled="!isDraft" />
             <span class="num text-right">{{ currency(lineSubtotal(row)) }}</span>
@@ -403,6 +497,12 @@ onMounted(async () => {
   gap: 6px;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.due {
+  margin: 2px 0 0;
+  font-size: 13px;
+  align-self: center;
 }
 
 .items {

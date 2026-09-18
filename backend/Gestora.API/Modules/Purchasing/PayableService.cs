@@ -2,6 +2,7 @@ using Gestora.API.Common;
 using Gestora.API.Data;
 using Gestora.API.Domain;
 using Gestora.API.Modules.Audit;
+using Gestora.API.Modules.Finance;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gestora.API.Modules.Purchasing;
@@ -11,7 +12,8 @@ namespace Gestora.API.Modules.Purchasing;
 /// (<see cref="PurchaseService.ConfirmAsync"/>); este servicio solo las consulta y
 /// registra abonos, completos o parciales, contra ellas.
 /// </summary>
-public class PayableService(GestoraDbContext db, IAuditService audit, ICurrentUser current)
+public class PayableService(GestoraDbContext db, IAuditService audit, ICurrentUser current,
+    FinanceService finance)
 {
     public async Task<PagedResult<AccountPayableDto>> ListAsync(PayableQuery q)
     {
@@ -51,38 +53,56 @@ public class PayableService(GestoraDbContext db, IAuditService audit, ICurrentUs
     /// <summary>
     /// Registra un abono. No se permite pagar más de lo que se debe: un sobrepago
     /// indica un error de digitación que hay que corregir, no absorber en silencio.
+    ///
+    /// El pago deja además su asiento en el libro de gastos, dentro de la misma
+    /// transacción: el dinero sale una vez y se ve en los dos lugares.
     /// </summary>
     public async Task<AccountPayableDto> RegisterPaymentAsync(int payableId, RegisterPaymentRequest request)
     {
-        var payable = await LoadAsync(payableId);
-
-        if (payable.Status is PayableStatus.Paid or PayableStatus.Cancelled)
-            throw new ApiException("Esta cuenta ya está saldada y no admite más pagos.");
-
-        if (request.Amount > payable.Balance)
-            throw ApiException.Conflict(
-                $"El monto ({request.Amount:N2}) supera el saldo pendiente ({payable.Balance:N2}).");
-
-        var payment = new Payment
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            AccountPayableId = payable.Id,
-            Date = request.Date ?? DateTime.UtcNow,
-            Amount = request.Amount,
-            Method = request.Method.Trim(),
-            Reference = request.Reference?.Trim(),
-            Notes = request.Notes?.Trim(),
-            UserId = current.IsAuthenticated ? current.UserId : null
-        };
-        db.Payments.Add(payment);
+            await using var transaction = await db.Database.BeginTransactionAsync();
 
-        payable.PaidAmount += request.Amount;
-        payable.Balance -= request.Amount;
-        payable.Status = payable.Balance <= 0 ? PayableStatus.Paid : PayableStatus.PartiallyPaid;
+            var payable = await LoadAsync(payableId);
 
-        audit.Track("Pago registrado", "payables", nameof(AccountPayable), payable.Id,
-            $"Pago de {request.Amount:N2} a {payable.DocumentNumber} ({payable.Supplier.Name}) · saldo {payable.Balance:N2}");
+            if (payable.Status is PayableStatus.Paid or PayableStatus.Cancelled)
+                throw new ApiException("Esta cuenta ya está saldada y no admite más pagos.");
 
-        await db.SaveChangesAsync();
+            if (request.Amount > payable.Balance)
+                throw ApiException.Conflict(
+                    $"El monto ({request.Amount:N2}) supera el saldo pendiente ({payable.Balance:N2}).");
+
+            var payment = new Payment
+            {
+                AccountPayableId = payable.Id,
+                Date = request.Date ?? DateTime.UtcNow,
+                Amount = request.Amount,
+                Method = request.Method.Trim(),
+                Reference = request.Reference?.Trim(),
+                Notes = request.Notes?.Trim(),
+                UserId = current.IsAuthenticated ? current.UserId : null
+            };
+            db.Payments.Add(payment);
+
+            payable.PaidAmount += request.Amount;
+            payable.Balance -= request.Amount;
+            payable.Status = payable.Balance <= 0 ? PayableStatus.Paid : PayableStatus.PartiallyPaid;
+
+            audit.Track("Pago registrado", "payables", nameof(AccountPayable), payable.Id,
+                $"Pago de {request.Amount:N2} a {payable.DocumentNumber} ({payable.Supplier.Name}) · saldo {payable.Balance:N2}");
+
+            // El Id del pago hace falta para enlazar el asiento de caja con su origen.
+            await db.SaveChangesAsync();
+
+            await finance.RecordAutomaticAsync(FinanceKind.Expense, FinanceSource.Payment, payment.Id,
+                payment.Amount, $"Pago {payable.DocumentNumber} · {payable.Supplier.Name}",
+                payment.Method, payment.Reference, payment.Date);
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+        });
+
         return await GetAsync(payableId);
     }
 

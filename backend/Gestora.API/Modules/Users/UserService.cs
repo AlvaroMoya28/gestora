@@ -9,7 +9,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Gestora.API.Modules.Users;
 
 public record UserDto(int Id, string FirstName, string LastName, string FullName, string Email,
-    string? Phone, int RoleId, string RoleName, bool IsActive, DateTime? LastLoginAt, DateTime CreatedAt);
+    string? Phone, int RoleId, string RoleKey, string RoleName, bool IsActive,
+    DateTime? LastLoginAt, DateTime CreatedAt);
 
 public class UserRequest
 {
@@ -35,19 +36,14 @@ public class UserRequest
 
 public record RolePermissionDto(string ModuleKey, bool CanRead, bool CanWrite);
 
-public record RoleDto(int Id, string Name, string? Description, bool IsSystem, bool IsActive,
+public record RoleDto(int Id, string Key, string Name, string? Description, string Scope,
     int UserCount, IReadOnlyList<RolePermissionDto> Permissions);
 
-public class RoleRequest
-{
-    [Required(ErrorMessage = "El nombre del rol es obligatorio.")]
-    [MaxLength(60)] public string Name { get; set; } = string.Empty;
-
-    [MaxLength(200)] public string? Description { get; set; }
-
-    public List<RolePermissionDto> Permissions { get; set; } = [];
-}
-
+/// <summary>
+/// Usuarios de la empresa activa. Cada empresa administra sus propias cuentas dentro
+/// de los dos roles disponibles (administrador y consulta); los roles no se crean ni
+/// se editan desde acá, son un catálogo fijo de la plataforma.
+/// </summary>
 public class UserService(GestoraDbContext db, IAuditService audit, ICurrentUser current)
 {
     public async Task<PagedResult<UserDto>> ListAsync(QueryParams q)
@@ -78,25 +74,30 @@ public class UserService(GestoraDbContext db, IAuditService audit, ICurrentUser 
             throw new ApiException("La contraseña es obligatoria al crear un usuario.");
 
         var email = request.Email.Trim().ToLowerInvariant();
-        if (await db.Users.AnyAsync(u => u.Email == email))
+
+        // El correo identifica la sesión en toda la plataforma, así que la unicidad
+        // se comprueba globalmente, no solo dentro de la empresa.
+        if (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == email))
             throw ApiException.Conflict("Ya existe un usuario con ese correo.");
 
-        await EnsureRoleExistsAsync(request.RoleId);
+        var role = await EnsureAssignableRoleAsync(request.RoleId);
+        await EnsureUserQuotaAsync();
 
         var (hash, salt) = PasswordHasher.Hash(request.Password);
         var user = new User
         {
+            CompanyId = current.CompanyId > 0 ? current.CompanyId : null,
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
             Email = email,
             Phone = request.Phone?.Trim(),
-            RoleId = request.RoleId,
+            RoleId = role.Id,
             PasswordHash = hash,
             PasswordSalt = salt
         };
         db.Users.Add(user);
 
-        audit.Track("Creación", "users", nameof(User), null, $"Usuario {email}");
+        audit.Track("Creación", "users", nameof(User), null, $"Usuario {email} con rol {role.Name}");
         await db.SaveChangesAsync();
 
         return Map(await LoadAsync(user.Id));
@@ -107,34 +108,35 @@ public class UserService(GestoraDbContext db, IAuditService audit, ICurrentUser 
         var user = await LoadAsync(id);
         var email = request.Email.Trim().ToLowerInvariant();
 
-        if (await db.Users.AnyAsync(u => u.Email == email && u.Id != id))
+        if (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == email && u.Id != id))
             throw ApiException.Conflict("Ya existe un usuario con ese correo.");
 
-        await EnsureRoleExistsAsync(request.RoleId);
+        var role = await EnsureAssignableRoleAsync(request.RoleId);
 
-        if (user.Id == current.UserId && user.RoleId != request.RoleId)
+        if (user.Id == current.UserId && user.RoleId != role.Id)
             throw new ApiException("No puede cambiar su propio rol.");
 
-        var before = $"{user.FullName} | {user.Email} | rol {user.RoleId}";
+        var before = $"{user.FullName} | {user.Email} | {user.Role.Name}";
 
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.Email = email;
         user.Phone = request.Phone?.Trim();
-        user.RoleId = request.RoleId;
+        user.RoleId = role.Id;
 
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
             (user.PasswordHash, user.PasswordSalt) = PasswordHasher.Hash(request.Password);
             // Cambiar la contraseña desde administración cierra las sesiones del usuario.
-            var tokens = await db.RefreshTokens.Where(t => t.UserId == id && t.RevokedAt == null).ToListAsync();
+            var tokens = await db.RefreshTokens.IgnoreQueryFilters()
+                .Where(t => t.UserId == id && t.RevokedAt == null).ToListAsync();
             tokens.ForEach(t => t.RevokedAt = DateTime.UtcNow);
             audit.Track("Restablecimiento de contraseña", "users", nameof(User), id,
                 $"Contraseña restablecida para {email}");
         }
 
         audit.Track("Actualización", "users", nameof(User), id, "Usuario", before,
-            $"{user.FullName} | {user.Email} | rol {user.RoleId}");
+            $"{user.FullName} | {user.Email} | {role.Name}");
         await db.SaveChangesAsync();
 
         return Map(await LoadAsync(id));
@@ -149,10 +151,13 @@ public class UserService(GestoraDbContext db, IAuditService audit, ICurrentUser 
 
         if (user.IsActive != active)
         {
+            if (active) await EnsureUserQuotaAsync();
+
             user.IsActive = active;
             if (!active)
             {
-                var tokens = await db.RefreshTokens.Where(t => t.UserId == id && t.RevokedAt == null).ToListAsync();
+                var tokens = await db.RefreshTokens.IgnoreQueryFilters()
+                    .Where(t => t.UserId == id && t.RevokedAt == null).ToListAsync();
                 tokens.ForEach(t => t.RevokedAt = DateTime.UtcNow);
             }
             audit.Track(active ? "Reactivación" : "Inactivación", "users", nameof(User), id,
@@ -163,90 +168,68 @@ public class UserService(GestoraDbContext db, IAuditService audit, ICurrentUser 
         return Map(user);
     }
 
-    // ------------------------------------------------------------------ Roles ----
-
-    public async Task<IReadOnlyList<RoleDto>> ListRolesAsync()
+    /// <summary>
+    /// Roles que se pueden asignar dentro de la empresa activa. Nunca devuelve los de
+    /// plataforma: una empresa no puede crear administradores de Gestora.
+    /// </summary>
+    public async Task<IReadOnlyList<RoleDto>> ListAssignableRolesAsync()
     {
         var roles = await db.Roles.AsNoTracking().Include(r => r.Permissions)
-            .OrderBy(r => r.Name).ToListAsync();
+            .Where(r => r.IsActive && r.Scope == RoleScope.Company)
+            .OrderBy(r => r.SortOrder)
+            .ToListAsync();
 
         var counts = await db.Users.GroupBy(u => u.RoleId)
-            .Select(g => new { RoleId = g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.RoleId, x => x.Count);
+            .Select(g => new { RoleId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.RoleId, x => x.Count);
 
-        return roles.Select(r => new RoleDto(r.Id, r.Name, r.Description, r.IsSystem, r.IsActive,
+        return roles.Select(r => new RoleDto(r.Id, r.Key, r.Name, r.Description, r.Scope.ToString(),
             counts.GetValueOrDefault(r.Id),
             r.Permissions.Select(p => new RolePermissionDto(p.ModuleKey, p.CanRead, p.CanWrite)).ToList()))
             .ToList();
     }
 
-    public async Task<RoleDto> CreateRoleAsync(RoleRequest request)
+    // ------------------------------------------------------------ Internos ----
+
+    private async Task<Role> EnsureAssignableRoleAsync(int roleId)
     {
-        var name = request.Name.Trim();
-        if (await db.Roles.AnyAsync(r => r.Name == name))
-            throw ApiException.Conflict($"Ya existe el rol «{name}».");
+        var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == roleId && r.IsActive)
+            ?? throw new ApiException("El rol seleccionado no es válido.");
 
-        var role = new Role { Name = name, Description = request.Description?.Trim() };
-        ApplyPermissions(role, request.Permissions);
-        db.Roles.Add(role);
+        if (role.Scope != RoleScope.Company)
+            throw ApiException.Forbidden("No se pueden asignar roles de plataforma desde una empresa.");
 
-        audit.Track("Creación", "users", nameof(Role), null, $"Rol {name}");
-        await db.SaveChangesAsync();
-
-        return (await ListRolesAsync()).First(r => r.Id == role.Id);
+        return role;
     }
 
-    public async Task<RoleDto> UpdateRoleAsync(int id, RoleRequest request)
+    /// <summary>
+    /// El plan contratado limita cuántas cuentas activas puede tener la empresa.
+    /// Es el punto donde el modelo comercial toca la operación diaria.
+    /// </summary>
+    private async Task EnsureUserQuotaAsync()
     {
-        var role = await db.Roles.Include(r => r.Permissions).FirstOrDefaultAsync(r => r.Id == id)
-            ?? throw ApiException.NotFound("El rol");
+        if (current.CompanyId <= 0) return;
 
-        var name = request.Name.Trim();
-        if (await db.Roles.AnyAsync(r => r.Name == name && r.Id != id))
-            throw ApiException.Conflict($"Ya existe el rol «{name}».");
+        var plan = await db.Subscriptions
+            .Where(s => s.CompanyId == current.CompanyId && s.Status != SubscriptionStatus.Cancelled)
+            .OrderByDescending(s => s.EndDate)
+            .Select(s => s.Plan)
+            .FirstOrDefaultAsync();
 
-        if (role.IsSystem && !request.Permissions.Any(p => p.ModuleKey == "users" && p.CanWrite))
-            throw new ApiException("El rol de administrador debe conservar la gestión de usuarios.");
+        if (plan is null || plan.MaxUsers <= 0) return;
 
-        role.Name = name;
-        role.Description = request.Description?.Trim();
-
-        db.RolePermissions.RemoveRange(role.Permissions);
-        role.Permissions.Clear();
-        ApplyPermissions(role, request.Permissions);
-
-        audit.Track("Actualización", "users", nameof(Role), id, $"Permisos del rol {name}");
-        await db.SaveChangesAsync();
-
-        return (await ListRolesAsync()).First(r => r.Id == id);
-    }
-
-    private static void ApplyPermissions(Role role, IEnumerable<RolePermissionDto> permissions)
-    {
-        foreach (var permission in permissions.Where(p => p.CanRead || p.CanWrite))
-        {
-            if (!ModuleCatalog.Exists(permission.ModuleKey))
-                throw new ApiException($"El módulo «{permission.ModuleKey}» no existe.");
-
-            role.Permissions.Add(new RolePermission
-            {
-                ModuleKey = permission.ModuleKey,
-                // Escribir implica leer: evita estados de permiso incoherentes.
-                CanRead = permission.CanRead || permission.CanWrite,
-                CanWrite = permission.CanWrite
-            });
-        }
+        var activeUsers = await db.Users.CountAsync(u => u.IsActive);
+        if (activeUsers >= plan.MaxUsers)
+            throw ApiException.Conflict(
+                $"El plan {plan.Name} permite {plan.MaxUsers} usuario(s) activo(s). " +
+                "Desactive una cuenta o consulte a Gestora para ampliar el plan.");
     }
 
     private async Task<User> LoadAsync(int id) =>
         await db.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id)
         ?? throw ApiException.NotFound("El usuario");
 
-    private async Task EnsureRoleExistsAsync(int roleId)
-    {
-        if (!await db.Roles.AnyAsync(r => r.Id == roleId && r.IsActive))
-            throw new ApiException("El rol seleccionado no es válido.");
-    }
-
     private static UserDto Map(User u) => new(u.Id, u.FirstName, u.LastName, u.FullName, u.Email,
-        u.Phone, u.RoleId, u.Role?.Name ?? string.Empty, u.IsActive, u.LastLoginAt, u.CreatedAt);
+        u.Phone, u.RoleId, u.Role?.Key ?? string.Empty, u.Role?.Name ?? string.Empty,
+        u.IsActive, u.LastLoginAt, u.CreatedAt);
 }

@@ -29,6 +29,15 @@ public class Purchase : TenantEntity
     public DateTime Date { get; set; } = DateTime.UtcNow;
     public PurchaseStatus Status { get; set; } = PurchaseStatus.Draft;
 
+    /// <summary>
+    /// Condición pactada en esta compra. Se propone la del proveedor, pero se guarda
+    /// acá porque una compra puntual puede negociarse distinto de lo habitual.
+    /// </summary>
+    public PaymentTerm PaymentTerm { get; set; } = PaymentTerm.Cash;
+
+    /// <summary>Días de plazo desde <see cref="Date"/>. 0 en las compras de contado.</summary>
+    public int CreditDays { get; set; }
+
     public decimal Subtotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal Total { get; set; }

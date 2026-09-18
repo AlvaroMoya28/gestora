@@ -35,6 +35,10 @@ public class UsersController(UserService service) : ControllerBase
         => Ok(await service.SetActiveAsync(id, true));
 }
 
+/// <summary>
+/// Roles asignables dentro de una empresa. Solo lectura: el catálogo es fijo
+/// (administrador y consulta) y se define en la plataforma, no por empresa.
+/// </summary>
 [ApiController]
 [Route("api/roles")]
 [Authorize]
@@ -42,15 +46,6 @@ public class RolesController(UserService service) : ControllerBase
 {
     [HttpGet]
     [RequireModule("users")]
-    public async Task<ActionResult<IReadOnlyList<RoleDto>>> List() => Ok(await service.ListRolesAsync());
-
-    [HttpPost]
-    [RequireModule("users", write: true)]
-    public async Task<ActionResult<RoleDto>> Create([FromBody] RoleRequest request)
-        => Ok(await service.CreateRoleAsync(request));
-
-    [HttpPut("{id:int}")]
-    [RequireModule("users", write: true)]
-    public async Task<ActionResult<RoleDto>> Update(int id, [FromBody] RoleRequest request)
-        => Ok(await service.UpdateRoleAsync(id, request));
+    public async Task<ActionResult<IReadOnlyList<RoleDto>>> List()
+        => Ok(await service.ListAssignableRolesAsync());
 }

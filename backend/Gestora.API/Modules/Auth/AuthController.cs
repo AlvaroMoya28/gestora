@@ -44,9 +44,26 @@ public class AuthController(AuthService auth) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Catálogo completo de módulos, para la pantalla de administración de roles.</summary>
+    /// <summary>Catálogo completo de módulos, para las pantallas de administración.</summary>
     [HttpGet("modules")]
     [Authorize]
     public ActionResult<IEnumerable<object>> Modules()
-        => Ok(ModuleCatalog.Modules.Select(m => new { m.Key, m.Name, m.Group, m.Icon, m.Available }));
+        => Ok(ModuleCatalog.Modules.Select(m => new { m.Key, m.Name, m.Group, m.Icon, m.Available, Scope = m.Scope.ToString() }));
+
+    /// <summary>
+    /// Cambia la vista del desarrollador a la de una empresa. Devuelve una sesión nueva:
+    /// a partir de ahí ve exactamente lo que ve esa empresa.
+    /// </summary>
+    [HttpPost("ver-como/{companyId:int}")]
+    [Authorize]
+    [RequireDeveloper]
+    public async Task<ActionResult<AuthResponse>> Impersonate(int companyId)
+        => Ok(await auth.ImpersonateAsync(companyId));
+
+    /// <summary>Vuelve el desarrollador a su vista de plataforma.</summary>
+    [HttpPost("volver-a-plataforma")]
+    [Authorize]
+    [RequireDeveloper]
+    public async Task<ActionResult<AuthResponse>> StopImpersonating()
+        => Ok(await auth.StopImpersonatingAsync());
 }

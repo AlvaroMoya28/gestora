@@ -10,12 +10,13 @@ public record PurchaseItemDto(int Id, int ProductId, string ProductCode, string 
     string UnitAbbreviation, decimal Quantity, decimal UnitCost, decimal TaxRate, decimal Subtotal);
 
 public record PurchaseDto(int Id, string Number, int SupplierId, string SupplierName,
-    DateTime Date, PurchaseStatus Status, string StatusName, decimal Subtotal, decimal TaxAmount,
-    decimal Total, string? SupplierInvoiceNumber, string? Notes, IReadOnlyList<PurchaseItemDto> Items);
+    DateTime Date, PurchaseStatus Status, string StatusName, PaymentTerm PaymentTerm, int CreditDays,
+    DateTime DueDate, decimal Subtotal, decimal TaxAmount, decimal Total,
+    string? SupplierInvoiceNumber, string? Notes, IReadOnlyList<PurchaseItemDto> Items);
 
 /// <summary>Fila de listado, sin las líneas: más liviana para la tabla.</summary>
 public record PurchaseSummaryDto(int Id, string Number, string SupplierName, DateTime Date,
-    PurchaseStatus Status, string StatusName, decimal Total);
+    DateTime DueDate, PurchaseStatus Status, string StatusName, PaymentTerm PaymentTerm, decimal Total);
 
 public class PurchaseItemRequest
 {
@@ -38,6 +39,16 @@ public class PurchaseRequest
     public int SupplierId { get; set; }
 
     public DateTime? Date { get; set; }
+
+    /// <summary>Si se omite, se toma la condición pactada con el proveedor.</summary>
+    public PaymentTerm? PaymentTerm { get; set; }
+
+    /// <summary>
+    /// Días de plazo desde la fecha de la compra. Si se omite, se toman los del
+    /// proveedor. La pantalla permite elegirlos como plazo o como fecha concreta.
+    /// </summary>
+    [Range(0, 3650, ErrorMessage = "El plazo debe estar entre 0 y 3650 días.")]
+    public int? CreditDays { get; set; }
 
     [MaxLength(60)] public string? SupplierInvoiceNumber { get; set; }
     [MaxLength(500)] public string? Notes { get; set; }

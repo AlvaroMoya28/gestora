@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { authApi } from '@/services/api'
 import { setSessionExpiredHandler, tokenStorage } from '@/services/http'
-import type { AuthenticatedUser } from '@/types'
+import { RoleKeys, type AuthenticatedUser } from '@/types'
 
 const USER_KEY = 'gestora.user'
 
@@ -18,6 +18,14 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!user.value && !!tokenStorage.access)
 
   const modules = computed(() => user.value?.modules ?? [])
+
+  /** Sesión de plataforma: el usuario administra Gestora, no una empresa. */
+  const isPlatform = computed(() => user.value?.scope === 'Platform')
+  const isDeveloper = computed(() => user.value?.roleKey === RoleKeys.Developer)
+  const isImpersonating = computed(() => user.value?.isImpersonating === true)
+
+  /** Dónde aterriza el usuario al entrar, según el mundo al que pertenece. */
+  const homeRoute = computed(() => (isPlatform.value ? 'platform_overview' : 'dashboard'))
 
   /** Módulos disponibles agrupados en el orden en que llegan del catálogo. */
   const menuGroups = computed(() => {
@@ -70,6 +78,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * Vuelve a leer el perfil sin tocar los tokens. Se usa cuando cambia algo que la
+   * sesión lleva copiado —la moneda de la empresa, por ejemplo— para que el formato
+   * de toda la aplicación se entere sin obligar a volver a entrar.
+   */
+  async function refreshProfile() {
+    persist(await authApi.me())
+  }
+
   async function logout() {
     const refresh = tokenStorage.refresh
     if (refresh) {
@@ -84,10 +101,33 @@ export const useAuthStore = defineStore('auth', () => {
     persist(null)
   }
 
+  /**
+   * Cambia la sesión a la vista de una empresa. El backend emite un token nuevo con
+   * los permisos de esa empresa, así que a partir de aquí se ve exactamente lo mismo
+   * que ve el cliente. Solo el desarrollador puede hacerlo.
+   */
+  async function viewAsCompany(companyId: number) {
+    const response = await authApi.viewAsCompany(companyId)
+    tokenStorage.save(response.accessToken, response.refreshToken)
+    persist(response.user)
+    return response.user
+  }
+
+  async function backToPlatform() {
+    const response = await authApi.backToPlatform()
+    tokenStorage.save(response.accessToken, response.refreshToken)
+    persist(response.user)
+    return response.user
+  }
+
   return {
     user,
     loading,
     isAuthenticated,
+    isPlatform,
+    isDeveloper,
+    isImpersonating,
+    homeRoute,
     modules,
     menuGroups,
     canRead,
@@ -95,7 +135,10 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     restore,
+    refreshProfile,
     clearSession,
+    viewAsCompany,
+    backToPlatform,
   }
 })
 

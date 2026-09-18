@@ -10,20 +10,39 @@ el primer día, para poder evolucionar a SaaS multiempresa sin rehacer el modelo
 
 ---
 
-## Estado actual — fase 1
+## Los dos mundos de Gestora
 
-| Implementado | Diseñado, pendiente |
+Gestora son **dos productos** sobre la misma base: la **plataforma** (Gestora como
+negocio: empresas, suscripciones y cobros) y la **empresa** (el sistema que usa el
+cliente). Un usuario nunca ve los dos, salvo el desarrollador, que puede entrar a ver
+cualquier empresa de forma explícita y auditada.
+
+| Rol | Alcance | Qué hace |
+|---|---|---|
+| Desarrollador | Plataforma | Ve todo y puede entrar a ver cualquier empresa |
+| Administración Gestora | Plataforma | Empresas, suscripciones y cobros. No ve datos de los clientes |
+| Administrador | Empresa | Administra su empresa: registra, edita, da de baja |
+| Consulta | Empresa | Solo lectura dentro de su empresa |
+
+Detalle completo en [`docs/ARQUITECTURA-SAAS.md`](docs/ARQUITECTURA-SAAS.md).
+
+## Estado actual
+
+Todos los módulos del menú están implementados y operativos.
+
+| Área | Qué hace |
 |---|---|
-| Autenticación JWT con refresh token y rotación | Compras y cuentas por pagar |
-| Usuarios, roles y permisos por módulo | Ventas y cuentas por cobrar |
-| Layout, navegación por permisos y panel | Producción y recetas (BOM) |
-| Clientes y proveedores | Reparaciones |
-| Productos, categorías y unidades | Ingresos, gastos y pagos |
-| Inventario con movimientos y ajustes | Reportes y exportación |
-| Auditoría de operaciones | Configuración de la empresa |
+| **Plataforma** | Empresas, planes, suscripciones y cobros · alta de cliente con credenciales · «ver como empresa» auditado |
+| **Acceso** | JWT con refresh token y rotación · cuatro roles con alcance · permisos por módulo |
+| **Comercial** | Clientes y proveedores con condiciones de crédito |
+| **Catálogo** | Productos, categorías y unidades · inventario por movimientos con ajuste por conteo |
+| **Operación** | Compras · ventas · producción con recetas · reparaciones |
+| **Finanzas** | Cuentas por cobrar y por pagar con abonos · libro de ingresos y gastos |
+| **Análisis** | Ocho reportes con exportación a CSV · panel con alertas |
+| **Administración** | Usuarios · auditoría · configuración de la empresa |
 
-Los módulos pendientes ya aparecen en el menú con su marcador correspondiente: su
-modelo de datos y sus permisos están definidos.
+Pendiente: facturación electrónica de Hacienda, devoluciones, auto-registro con
+pasarela de pago y costeo promedio. Ver [`docs/MODELO-DATOS.md`](docs/MODELO-DATOS.md).
 
 ---
 
@@ -79,10 +98,12 @@ Edite ese archivo con su cadena de conexión y una clave JWT de al menos 32 cara
   },
   "Jwt": { "Key": "una-clave-aleatoria-larga-de-al-menos-32-caracteres" },
   "Seed": {
-    "CompanyName": "Mi Empresa",
-    "Currency": "CRC",
-    "AdminEmail": "admin@gestora.local",
-    "AdminPassword": "Gestora2026!"
+    "DeveloperEmail": "dev@gestora.local",
+    "DeveloperPassword": "Gestora2026!",
+    "CompanyName": "Empresa Demo",
+    "CompanyEmail": "empresa@gestora.local",
+    "CompanyPassword": "Empresa2026!",
+    "Currency": "CRC"
   }
 }
 ```
@@ -122,8 +143,18 @@ O ambas de una vez:
 .\scripts\start_project.bat
 ```
 
-Abra **http://localhost:8080** e ingrese con las credenciales de `Seed` de su
-`appsettings.Development.json`. **Cambie la contraseña desde «Mi cuenta» al primer ingreso.**
+Abra **http://localhost:8080**. El primer arranque crea dos cuentas, definidas en la
+sección `Seed` de su `appsettings.Development.json`:
+
+| Cuenta | Correo por defecto | Entra a |
+|---|---|---|
+| Desarrollador | `dev@gestora.local` | La plataforma: empresas, suscripciones, planes |
+| Empresa de ejemplo | `empresa@gestora.local` | El sistema como lo ve un cliente |
+
+Desde la cuenta de desarrollador, el botón **«Ver como»** en Empresas cambia la sesión
+a la vista de ese cliente; una banda ámbar avisa mientras dure y permite volver.
+
+**Cambie ambas contraseñas desde «Mi cuenta» al primer ingreso.**
 
 | Recurso | URL |
 |---|---|
@@ -170,7 +201,9 @@ gestora/
 │       ├── Common/     catálogo de módulos, errores, usuario actual
 │       ├── Data/       DbContext y datos iniciales
 │       ├── Domain/     entidades
-│       ├── Modules/    Auth · Users · Catalog · Inventory · Dashboard · Audit
+│       ├── Modules/    Auth · Users · Platform · Catalog · Inventory · Purchasing
+│       │               Sales · Production · Repairs · Finance · Reports
+│       │               Settings · Dashboard · Audit
 │       └── Migrations/
 ├── frontend/           Vue 3 + TypeScript
 │   └── src/
@@ -196,6 +229,7 @@ gestora/
 | [`database/README.md`](database/README.md) | Manual de MySQL: crear, conectar, migrar y respaldar. |
 | [`docs/ANALISIS-ADIC-PAA.md`](docs/ANALISIS-ADIC-PAA.md) | Qué se reutiliza, mejora y descarta de ADIC y PAA, y por qué. |
 | [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) | Estructura, flujo de una petición y decisiones estructurales. |
+| [`docs/ARQUITECTURA-SAAS.md`](docs/ARQUITECTURA-SAAS.md) | Los dos mundos, los cuatro roles y el «ver como empresa». |
 | [`docs/MODELO-DATOS.md`](docs/MODELO-DATOS.md) | Entidades, reglas del modelo y lo que viene después. |
 
 ---
@@ -203,11 +237,13 @@ gestora/
 ## Convenciones que sostienen el sistema
 
 1. **El inventario nunca se edita, se mueve.** `Product.Stock` es un saldo derivado que solo escribe `InventoryService` dentro de una transacción.
-2. **Nada financiero se borra.** Clientes, proveedores y productos se inactivan; el historial se conserva.
-3. **`decimal` para dinero**, nunca `float` ni `double`.
-4. **Un único catálogo de permisos** (`Common/ModuleCatalog.cs`) alimenta el menú del frontend y la autorización del backend.
-5. **`CompanyId` en todo el dominio**, con filtro global: ninguna consulta puede ver datos de otra empresa.
-6. **Ninguna URL del backend escrita en el código** del frontend: todo pasa por `VITE_API_URL`.
+2. **Cada documento tiene un punto sin retorno.** Confirmar una venta, terminar una orden de producción o entregar una reparación mueve el inventario y crea la deuda en una sola transacción: nunca queda media operación.
+3. **El dinero se registra una vez.** Los cobros y pagos dejan su asiento en ingresos y gastos automáticamente; esos asientos no se editan desde finanzas, porque su verdad vive en la cuenta que los originó.
+4. **Nada financiero se borra.** Clientes, proveedores y productos se inactivan; el historial se conserva.
+5. **`decimal` para dinero**, nunca `float` ni `double`.
+6. **Un único catálogo de permisos** (`Common/ModuleCatalog.cs`) alimenta el menú del frontend y la autorización del backend.
+7. **`CompanyId` en todo el dominio**, con filtro global: ninguna consulta puede ver datos de otra empresa.
+8. **Ninguna URL del backend escrita en el código** del frontend: todo pasa por `VITE_API_URL`.
 
 ---
 

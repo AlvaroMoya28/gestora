@@ -21,9 +21,10 @@ public record DashboardDto(
 public record LowStockDto(int ProductId, string Code, string Name, decimal Stock, decimal MinStock, string Unit);
 
 /// <summary>
-/// Resumen de la empresa. Hoy consolida catálogo e inventario; conforme entren
-/// compras, ventas y finanzas se agregan sus métricas a la misma respuesta, para que
-/// el frontend siga haciendo una sola llamada al entrar.
+/// Resumen de la empresa en una sola llamada: lo que se vendió este mes, lo que está
+/// por cobrar y por pagar, el estado del inventario y el trabajo abierto en taller.
+/// Las alertas están ordenadas por urgencia, de modo que lo primero que se lee al
+/// entrar sea lo que exige una decisión hoy.
 /// </summary>
 [ApiController]
 [Route("api/dashboard")]
@@ -34,6 +35,7 @@ public class DashboardController(GestoraDbContext db) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<DashboardDto>> Get()
     {
+        var today = DateTime.UtcNow.Date;
         var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
         var products = await db.Products.AsNoTracking().Include(p => p.Unit)
@@ -48,23 +50,84 @@ public class DashboardController(GestoraDbContext db) : ControllerBase
 
         var outOfStock = products.Count(p => p.Type != ProductType.Service && p.Stock <= 0);
 
+        // --- Dinero ---------------------------------------------------------------
+        var monthSales = await db.Sales
+            .Where(s => s.Status == SaleStatus.Confirmed && s.Date >= monthStart)
+            .SumAsync(s => (decimal?)s.Total) ?? 0;
+
+        var receivable = await db.AccountsReceivable
+            .Where(a => a.Balance > 0 && a.Status != ReceivableStatus.Cancelled)
+            .SumAsync(a => (decimal?)a.Balance) ?? 0;
+
+        var overdueReceivable = await db.AccountsReceivable
+            .Where(a => a.Balance > 0 && a.Status != ReceivableStatus.Cancelled && a.DueDate < today)
+            .SumAsync(a => (decimal?)a.Balance) ?? 0;
+
+        var payable = await db.AccountsPayable
+            .Where(a => a.Balance > 0 && a.Status != PayableStatus.Cancelled)
+            .SumAsync(a => (decimal?)a.Balance) ?? 0;
+
+        var overduePayable = await db.AccountsPayable
+            .CountAsync(a => a.Balance > 0 && a.Status != PayableStatus.Cancelled && a.DueDate < today);
+
+        var monthIncome = await db.FinanceEntries
+            .Where(e => e.Kind == FinanceKind.Income && e.Date >= monthStart)
+            .SumAsync(e => (decimal?)e.Amount) ?? 0;
+
+        var monthExpense = await db.FinanceEntries
+            .Where(e => e.Kind == FinanceKind.Expense && e.Date >= monthStart)
+            .SumAsync(e => (decimal?)e.Amount) ?? 0;
+
+        // --- Trabajo abierto ------------------------------------------------------
+        var openRepairs = await db.RepairOrders
+            .CountAsync(r => r.Status != RepairStatus.Delivered && r.Status != RepairStatus.Cancelled);
+
+        var lateRepairs = await db.RepairOrders
+            .CountAsync(r => r.PromisedAt != null && r.PromisedAt < today
+                && r.Status != RepairStatus.Delivered && r.Status != RepairStatus.Cancelled);
+
+        var openProduction = await db.ProductionOrders
+            .CountAsync(o => o.Status == ProductionStatus.Planned || o.Status == ProductionStatus.InProgress);
+
         var metrics = new List<MetricDto>
         {
+            new("monthSales", "Ventas del mes", monthSales, "money", "Facturas confirmadas"),
+            new("receivable", "Por cobrar", receivable, "money",
+                overdueReceivable > 0 ? $"{overdueReceivable:N2} vencido" : null),
+            new("payable", "Por pagar", payable, "money",
+                overduePayable > 0 ? $"{overduePayable} documento(s) vencido(s)" : null),
+            // No es la utilidad del mes: es dinero que entró menos dinero que salió. Un mes
+            // puede cerrar en rojo por haber comprado materia prima que todavía no se vende,
+            // sin que la empresa esté perdiendo. Llamarlo «resultado» hacía leer una pérdida
+            // donde solo hay un desfase entre lo que se paga y lo que se cobra.
+            new("monthResult", "Flujo de caja del mes", monthIncome - monthExpense, "money",
+                $"Entró {monthIncome:N2} · salió {monthExpense:N2}"),
             new("inventoryValue", "Valor del inventario",
                 products.Sum(p => p.Stock * p.Cost), "money",
                 "Existencia actual valorada al costo"),
-            new("products", "Productos activos", products.Count, "integer", null),
-            new("customers", "Clientes activos",
-                await db.Customers.CountAsync(c => c.IsActive), "integer", null),
-            new("suppliers", "Proveedores activos",
-                await db.Suppliers.CountAsync(s => s.IsActive), "integer", null),
+            new("openRepairs", "Reparaciones abiertas", openRepairs, "integer",
+                lateRepairs > 0 ? $"{lateRepairs} atrasada(s)" : null),
+            new("openProduction", "Producción en curso", openProduction, "integer", null),
             new("lowStock", "Productos bajo mínimo", lowStock.Count, "integer",
-                outOfStock > 0 ? $"{outOfStock} agotado(s)" : null),
-            new("movements", "Movimientos del mes",
-                await db.InventoryMovements.CountAsync(m => m.OccurredAt >= monthStart), "integer", null)
+                outOfStock > 0 ? $"{outOfStock} agotado(s)" : null)
         };
 
+        // Las alertas se agregan de la más urgente a la menos: dinero vencido primero,
+        // compromisos incumplidos después, y al final lo que solo es preparación.
         var alerts = new List<AlertDto>();
+
+        if (overdueReceivable > 0)
+            alerts.Add(new AlertDto("danger", "Cobros vencidos",
+                $"{overdueReceivable:N2} en cuentas que ya vencieron.", "receivables"));
+
+        if (overduePayable > 0)
+            alerts.Add(new AlertDto("warning", "Pagos vencidos",
+                $"{overduePayable} cuenta(s) por pagar pasaron su fecha de vencimiento.", "payables"));
+
+        if (lateRepairs > 0)
+            alerts.Add(new AlertDto("warning", "Reparaciones atrasadas",
+                $"{lateRepairs} reparación(es) pasaron la fecha prometida al cliente.", "repairs"));
+
         if (outOfStock > 0)
             alerts.Add(new AlertDto("danger", "Productos agotados",
                 $"{outOfStock} producto(s) sin existencia disponible.", "inventory"));
