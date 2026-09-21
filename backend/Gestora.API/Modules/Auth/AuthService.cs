@@ -202,6 +202,22 @@ public class AuthService(
         await db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Marca el recorrido guiado como visto. Da igual si lo terminó o lo saltó: en los
+    /// dos casos ya no se le vuelve a mostrar solo, y puede repetirlo desde Ayuda.
+    /// </summary>
+    public async Task MarkTourCompletedAsync()
+    {
+        var user = await db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == current.UserId)
+            ?? throw new ApiException("Sesión no válida.", 401);
+
+        if (user.TourCompletedAt is not null) return;
+
+        user.TourCompletedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+    }
+
     // ------------------------------------------------------- Ver como empresa ----
 
     /// <summary>
@@ -347,6 +363,6 @@ public class AuthService(
             user.Id, user.FirstName, user.LastName, user.FullName, user.Email, user.Phone,
             user.RoleId, user.Role.Key, user.Role.Name, scope.ToString(),
             company?.Id ?? 0, company?.Name, company?.Currency ?? "CRC",
-            impersonating, modules);
+            impersonating, user.TourCompletedAt is not null, modules);
     }
 }

@@ -56,7 +56,10 @@ permisos se recalculan en cada arranque.
 **`users`** — `PasswordHash` + `PasswordSalt` en formato `PBKDF2$iteraciones$sal`.
 `FailedLoginAttempts` y `LockedUntil` implementan el bloqueo temporal. **`CompanyId` es
 nulo** en los usuarios de Gestora. El correo es único globalmente, porque el login no
-sabe todavía a qué empresa pertenece quien entra.
+sabe todavía a qué empresa pertenece quien entra. `TourCompletedAt` guarda cuándo la
+persona terminó o saltó el recorrido guiado de bienvenida; mientras es nulo, se le
+muestra al entrar. Va en el usuario y no en el navegador para que salga una sola vez
+por persona, aunque cambie de computadora.
 
 **`refreshtokens`** — tabla propia, no columna del usuario: permite varias sesiones
 simultáneas y revocarlas individualmente. Se rotan en cada uso.

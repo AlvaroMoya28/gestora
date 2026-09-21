@@ -52,6 +52,8 @@ export interface AuthenticatedUser {
   currency: string
   /** El desarrollador está viendo el sistema como una empresa. */
   isImpersonating: boolean
+  /** Ya vio el recorrido guiado de bienvenida. */
+  tourCompleted: boolean
   modules: ModulePermission[]
 }
 

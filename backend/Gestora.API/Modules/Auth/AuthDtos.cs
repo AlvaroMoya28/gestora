@@ -48,6 +48,8 @@ public record AuthenticatedUserDto(
     string Currency,
     /// <summary>El desarrollador está viendo el sistema como esta empresa.</summary>
     bool IsImpersonating,
+    /// <summary>Ya vio el recorrido guiado; si es falso, se le muestra al entrar.</summary>
+    bool TourCompleted,
     IReadOnlyList<ModulePermissionDto> Modules);
 
 public record AuthResponse(string AccessToken, string RefreshToken, int ExpiresInSeconds, AuthenticatedUserDto User);

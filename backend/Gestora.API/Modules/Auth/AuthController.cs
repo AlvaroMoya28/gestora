@@ -44,6 +44,15 @@ public class AuthController(AuthService auth) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>El usuario terminó o saltó el recorrido guiado de bienvenida.</summary>
+    [HttpPost("recorrido-completado")]
+    [Authorize]
+    public async Task<IActionResult> TourCompleted()
+    {
+        await auth.MarkTourCompletedAsync();
+        return NoContent();
+    }
+
     /// <summary>Catálogo completo de módulos, para las pantallas de administración.</summary>
     [HttpGet("modules")]
     [Authorize]

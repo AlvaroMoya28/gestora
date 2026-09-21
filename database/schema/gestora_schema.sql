@@ -943,6 +943,7 @@ CREATE TABLE `users` (
   `UpdatedAt` datetime(6) DEFAULT NULL,
   `UpdatedByUserId` int DEFAULT NULL,
   `CompanyId` int DEFAULT NULL,
+  `TourCompletedAt` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`Id`),
   UNIQUE KEY `IX_Users_Email` (`Email`),
   KEY `IX_Users_RoleId` (`RoleId`),

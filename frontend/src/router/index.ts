@@ -96,6 +96,13 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/AuditView.vue'),
         meta: { module: 'audit', title: 'Auditoría' },
       },
+      // La ayuda no pide módulo: la ve todo el mundo, sea cual sea su rol.
+      {
+        path: 'ayuda/:topic?',
+        name: 'help',
+        component: () => import('@/views/HelpView.vue'),
+        meta: { title: 'Ayuda' },
+      },
       {
         path: 'mi-cuenta',
         name: 'profile',

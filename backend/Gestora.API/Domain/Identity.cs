@@ -112,6 +112,13 @@ public class User : BaseEntity
     public int FailedLoginAttempts { get; set; }
     public DateTime? LockedUntil { get; set; }
 
+    /// <summary>
+    /// Cuándo terminó —o saltó— el recorrido guiado de bienvenida. Se guarda en el
+    /// usuario y no en el navegador para que salga una sola vez por persona, aunque
+    /// después entre desde otra computadora.
+    /// </summary>
+    public DateTime? TourCompletedAt { get; set; }
+
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 
     public string FullName => $"{FirstName} {LastName}".Trim();

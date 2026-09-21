@@ -158,7 +158,7 @@ onMounted(async () => {
 
     <div class="grid">
       <!-- ---------------------------------------------------- Ficha de la empresa -->
-      <section class="panel">
+      <section class="panel" data-tour="settings-company">
         <header>
           <h2>Datos de la empresa</h2>
           <p class="muted">Aparecen en los documentos y definen el formato de los importes.</p>
@@ -254,7 +254,7 @@ onMounted(async () => {
     </div>
 
     <!-- ------------------------------------------------------- Categorías -->
-    <section class="panel">
+    <section class="panel" data-tour="settings-categories">
       <header class="with-action">
         <div>
           <h2>Categorías de ingresos y gastos</h2>

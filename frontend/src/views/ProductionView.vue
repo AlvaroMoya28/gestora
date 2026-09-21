@@ -406,7 +406,7 @@ onMounted(async () => {
       </template>
     </PageHeader>
 
-    <div class="tabs" role="tablist">
+    <div class="tabs" role="tablist" data-tour="production-tabs">
       <button :class="{ active: tab === 'orders' }" role="tab" type="button" @click="tab = 'orders'">
         Órdenes
       </button>

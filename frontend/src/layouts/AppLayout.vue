@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import TourOverlay from '@/components/help/TourOverlay.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import BrandMark from '@/components/ui/BrandMark.vue'
+import { useTours } from '@/help/tours'
 import { useAuthStore } from '@/stores/auth'
+import { useTourStore } from '@/stores/tour'
 
 /**
  * Estructura de la aplicación: barra lateral, encabezado y área de contenido.
@@ -30,6 +33,31 @@ async function logout() {
   router.push({ name: 'login' })
 }
 
+// ------------------------------------------------------ Recorrido guiado ----
+
+const tour = useTourStore()
+const { startWelcome } = useTours()
+
+/**
+ * La bienvenida sale sola la primera vez que una persona entra a su empresa. No sale
+ * en la plataforma, que no tiene recorrido, ni cuando el desarrollador mira una
+ * empresa: ahí el recorrido pendiente sería el del cliente, no el suyo.
+ */
+onMounted(async () => {
+  await nextTick()
+  const user = auth.user
+  if (!user || user.tourCompleted || auth.isPlatform || auth.isImpersonating || tour.active) return
+  startWelcome(route.fullPath)
+})
+
+// En el celular la barra lateral vive escondida: se abre mientras el recorrido la señala.
+watch(
+  () => tour.wantsSidebar,
+  (wants) => {
+    sidebarOpen.value = wants
+  },
+)
+
 /** Devuelve al desarrollador de la vista de una empresa a su panel de plataforma. */
 const returning = ref(false)
 async function backToPlatform() {
@@ -46,7 +74,7 @@ async function backToPlatform() {
 <template>
   <div class="shell">
     <aside :class="['sidebar', { open: sidebarOpen }]">
-      <div class="brand">
+      <div class="brand" data-tour="brand">
         <BrandMark :size="32" :tone="auth.isPlatform ? 'platform' : 'brand'" />
         <div>
           <strong>Gestora</strong>
@@ -56,7 +84,7 @@ async function backToPlatform() {
         </div>
       </div>
 
-      <nav>
+      <nav data-tour="menu">
         <div v-for="group in auth.menuGroups" :key="group.name" class="group">
           <p class="group-label">{{ group.name }}</p>
           <RouterLink
@@ -65,6 +93,7 @@ async function backToPlatform() {
             :to="{ name: item.key }"
             class="nav-item"
             :class="{ pending: !item.available }"
+            :data-tour="`menu-${item.key}`"
             @click="sidebarOpen = false"
           >
             <AppIcon :name="item.icon" :size="17" />
@@ -73,6 +102,19 @@ async function backToPlatform() {
           </RouterLink>
         </div>
       </nav>
+
+      <!-- Fuera del menú que se desplaza: la ayuda tiene que estar a la vista siempre. -->
+      <div class="sidebar-help">
+        <RouterLink
+          :to="{ name: 'help' }"
+          class="nav-item"
+          data-tour="menu-help"
+          @click="sidebarOpen = false"
+        >
+          <AppIcon name="help" :size="17" />
+          <span>Ayuda</span>
+        </RouterLink>
+      </div>
 
       <footer class="sidebar-footer muted">v0.1 · fase 1</footer>
     </aside>
@@ -103,7 +145,7 @@ async function backToPlatform() {
         <h2>{{ currentTitle }}</h2>
 
         <div class="profile" @click.stop>
-          <button class="profile-btn" @click="profileOpen = !profileOpen">
+          <button class="profile-btn" data-tour="profile" @click="profileOpen = !profileOpen">
             <span class="avatar">{{ initials }}</span>
             <span class="who">
               <strong>{{ auth.user?.fullName }}</strong>
@@ -126,6 +168,8 @@ async function backToPlatform() {
         <RouterView />
       </main>
     </div>
+
+    <TourOverlay />
   </div>
 </template>
 
@@ -262,6 +306,11 @@ nav {
   font-size: 18px;
   line-height: 0;
   color: var(--accent-500);
+}
+
+.sidebar-help {
+  padding: 6px 10px;
+  border-top: 1px solid var(--ink-200);
 }
 
 .sidebar-footer {

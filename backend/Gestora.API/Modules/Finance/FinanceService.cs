@@ -135,12 +135,18 @@ public class FinanceService(GestoraDbContext db, IAuditService audit, ICurrentUs
         var query = BaseQuery(kind, q);
         var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        var byCategory = await query
+        // Se agrupa en la base y se ordena en memoria: ordenar por una propiedad del DTO
+        // obliga a EF a traducir el constructor del record, y eso MySQL no lo sabe hacer.
+        // Son unas pocas categorías, así que ordenarlas acá no cuesta nada.
+        var totals = await query
             .GroupBy(e => new { e.CategoryId, e.Category.Name })
-            .Select(g => new FinanceCategoryTotalDto(g.Key.CategoryId, g.Key.Name,
-                g.Sum(e => e.Amount), g.Count()))
-            .OrderByDescending(c => c.Total)
+            .Select(g => new { g.Key.CategoryId, g.Key.Name, Total = g.Sum(e => e.Amount), Count = g.Count() })
             .ToListAsync();
+
+        var byCategory = totals
+            .OrderByDescending(c => c.Total)
+            .Select(c => new FinanceCategoryTotalDto(c.CategoryId, c.Name, c.Total, c.Count))
+            .ToList();
 
         return new FinanceSummaryDto(
             await query.SumAsync(e => (decimal?)e.Amount) ?? 0,

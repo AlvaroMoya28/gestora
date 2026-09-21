@@ -40,7 +40,7 @@ onMounted(async () => {
     </section>
 
     <template v-else-if="data">
-      <section class="metrics">
+      <section class="metrics" data-tour="dashboard-metrics">
         <article v-for="item in data.metrics" :key="item.key" class="metric-card">
           <p class="label">{{ item.label }}</p>
           <p class="value">{{ metric(item.value, item.format) }}</p>
@@ -48,7 +48,7 @@ onMounted(async () => {
         </article>
       </section>
 
-      <section v-if="data.alerts.length" class="alerts">
+      <section v-if="data.alerts.length" class="alerts" data-tour="dashboard-alerts">
         <article v-for="alert in data.alerts" :key="alert.title" class="alert" :class="alert.level">
           <AppIcon name="alert" :size="18" />
           <div>
@@ -65,7 +65,7 @@ onMounted(async () => {
       </section>
 
       <section class="grid">
-        <article class="panel">
+        <article class="panel" data-tour="dashboard-lowstock">
           <header>
             <h3>Productos por reponer</h3>
             <RouterLink v-if="auth.canRead('inventory')" :to="{ name: 'inventory' }">Inventario</RouterLink>
@@ -89,7 +89,7 @@ onMounted(async () => {
           <p v-else class="empty muted">Todas las existencias están sobre su nivel mínimo.</p>
         </article>
 
-        <article class="panel">
+        <article class="panel" data-tour="dashboard-activity">
           <header>
             <h3>Actividad reciente</h3>
             <RouterLink v-if="auth.canRead('audit')" :to="{ name: 'audit' }">Auditoría</RouterLink>

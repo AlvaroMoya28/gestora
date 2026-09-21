@@ -66,6 +66,7 @@ export const authApi = {
   modules: () => http.get<ModuleDefinition[]>('/auth/modules').then((r) => r.data),
   changePassword: (currentPassword: string, newPassword: string) =>
     http.post('/auth/change-password', { currentPassword, newPassword }),
+  tourCompleted: () => http.post('/auth/recorrido-completado'),
 
   /** Solo el desarrollador: cambia la sesión a la vista de una empresa. */
   viewAsCompany: (companyId: number) =>

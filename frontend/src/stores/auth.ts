@@ -87,6 +87,17 @@ export const useAuthStore = defineStore('auth', () => {
     persist(await authApi.me())
   }
 
+  /**
+   * Deja constancia de que el usuario ya vio el recorrido. Se marca en la sesión antes
+   * de esperar al servidor: si la red falla, lo peor que pasa es que el recorrido
+   * vuelva a ofrecerse la próxima vez, no que se quede trabado en pantalla.
+   */
+  async function markTourCompleted() {
+    if (!user.value || user.value.tourCompleted) return
+    persist({ ...user.value, tourCompleted: true })
+    await authApi.tourCompleted().catch(() => undefined)
+  }
+
   async function logout() {
     const refresh = tokenStorage.refresh
     if (refresh) {
@@ -136,6 +147,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     restore,
     refreshProfile,
+    markTourCompleted,
     clearSession,
     viewAsCompany,
     backToPlatform,

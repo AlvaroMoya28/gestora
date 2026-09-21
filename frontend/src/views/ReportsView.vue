@@ -139,7 +139,7 @@ onMounted(async () => {
 
 <template>
   <div class="layout">
-    <aside class="picker">
+    <aside class="picker" data-tour="report-picker">
       <h2>Reportes</h2>
       <div v-for="group in groups" :key="group.name" class="group">
         <h3>{{ group.name }}</h3>
@@ -169,7 +169,7 @@ onMounted(async () => {
         </template>
       </PageHeader>
 
-      <div v-if="report?.needsPeriod" class="period">
+      <div v-if="report?.needsPeriod" class="period" data-tour="report-period">
         <label>
           <span class="muted">Desde</span>
           <input v-model="period.from" class="control" type="date" @change="reload" />
