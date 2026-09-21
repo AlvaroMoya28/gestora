@@ -25,8 +25,12 @@ npm-debug.log*
 yarn-error.log*
 
 # --- Base de datos -----------------------------------------------------------
+# En el repositorio va solo la estructura. Un volcado con datos lleva los correos
+# y el hash de contraseña de los usuarios, además de la información comercial de
+# la empresa, y eso no se versiona ni en un repositorio privado.
 database/backups/*.sql
 !database/backups/.gitkeep
+database/schema/gestora_datos.sql
 
 # --- Editores y sistema ------------------------------------------------------
 .idea/
