@@ -36,6 +36,7 @@ public class GestoraDbContext : DbContext
     public DbSet<Product> Products => Set<Product>();
     public DbSet<InventoryMovement> InventoryMovements => Set<InventoryMovement>();
 
+    public DbSet<ReceivedDocument> ReceivedDocuments => Set<ReceivedDocument>();
     public DbSet<Purchase> Purchases => Set<Purchase>();
     public DbSet<PurchaseItem> PurchaseItems => Set<PurchaseItem>();
     public DbSet<AccountPayable> AccountsPayable => Set<AccountPayable>();
@@ -83,6 +84,7 @@ public class GestoraDbContext : DbContext
         b.Entity<Product>().HasQueryFilter(e => e.CompanyId == TenantId);
         b.Entity<InventoryMovement>().HasQueryFilter(e => e.CompanyId == TenantId);
         b.Entity<Purchase>().HasQueryFilter(e => e.CompanyId == TenantId);
+        b.Entity<ReceivedDocument>().HasQueryFilter(e => e.CompanyId == TenantId);
         b.Entity<AccountPayable>().HasQueryFilter(e => e.CompanyId == TenantId);
         b.Entity<Sale>().HasQueryFilter(e => e.CompanyId == TenantId);
         b.Entity<AccountReceivable>().HasQueryFilter(e => e.CompanyId == TenantId);
@@ -157,6 +159,13 @@ public class GestoraDbContext : DbContext
         b.Entity<AuditLog>().HasIndex(a => new { a.CompanyId, a.OccurredAt });
 
         // --- Compras y cuentas por pagar ----------------------------------------------
+        b.Entity<ReceivedDocument>().HasIndex(d => new { d.CompanyId, d.Key }).IsUnique();
+        b.Entity<ReceivedDocument>().HasIndex(d => new { d.CompanyId, d.Status, d.IssueDate });
+        b.Entity<ReceivedDocument>().HasOne(d => d.Purchase).WithMany().HasForeignKey(d => d.PurchaseId)
+            .OnDelete(DeleteBehavior.SetNull);
+        b.Entity<ReceivedDocument>().Property(d => d.Xml).HasColumnType("longtext");
+        b.Entity<ReceivedDocument>().Property(d => d.LinesJson).HasColumnType("longtext");
+        b.Entity<Company>().HasIndex(c => c.InboundToken).IsUnique();
         b.Entity<Purchase>().HasIndex(p => new { p.CompanyId, p.Number }).IsUnique();
         b.Entity<Purchase>().HasIndex(p => new { p.CompanyId, p.Status, p.Date });
         b.Entity<Purchase>().HasOne(p => p.Supplier).WithMany().HasForeignKey(p => p.SupplierId)

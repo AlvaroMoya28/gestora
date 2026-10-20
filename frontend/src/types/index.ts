@@ -821,3 +821,55 @@ export interface PlatformOverview {
   expiringSoon: Subscription[]
   recentCompanies: PlatformCompany[]
 }
+
+// ------------------------------------------------------- FACTURAS RECIBIDAS ----
+
+/** Debe coincidir con Domain.ReceivedDocumentStatus del backend. */
+export const ReceivedStatus = { Pending: 0, Imported: 1, Discarded: 2 } as const
+export type ReceivedStatusValue = (typeof ReceivedStatus)[keyof typeof ReceivedStatus]
+
+export interface ReceivedLine {
+  number: number
+  code: string
+  description: string
+  quantity: number
+  unitCost: number
+  subtotal: number
+  taxRate: number
+  suggestedProductId: number | null
+  suggestedProductName: string | null
+}
+
+export interface ReceivedDocument {
+  id: number
+  key: string
+  documentType: string
+  typeName: string
+  consecutive: string
+  issuerTaxId: string
+  issuerName: string
+  issueDate: string
+  currency: string
+  isCredit: boolean
+  creditDays: number
+  subtotal: number
+  taxAmount: number
+  total: number
+  sourceName: string
+  senderEmail: string | null
+  receivedAt: string
+  status: ReceivedStatusValue
+  statusName: string
+  purchaseId: number | null
+  purchaseNumber: string | null
+  supplierName: string | null
+  lines: ReceivedLine[]
+}
+
+export interface UploadResult {
+  fileName: string
+  ok: boolean
+  duplicate: boolean
+  message: string
+  id: number | null
+}

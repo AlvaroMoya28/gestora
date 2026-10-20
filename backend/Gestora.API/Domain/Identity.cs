@@ -49,6 +49,12 @@ public class Company : BaseEntity
     public CompanyStatus Status { get; set; } = CompanyStatus.Active;
     [MaxLength(500)] public string? Notes { get; set; }
 
+    /// <summary>
+    /// Identifica a la empresa en su dirección de recepción de facturas por correo. Se
+    /// genera la primera vez que se necesita; no es secreto, solo evita adivinar empresas.
+    /// </summary>
+    [MaxLength(20)] public string? InboundToken { get; set; }
+
     public ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
 
     public bool IsActive => Status == CompanyStatus.Active;

@@ -22,6 +22,8 @@ import type {
   ProductionOrder,
   ProductionOrderSummary,
   Purchase,
+  ReceivedDocument,
+  UploadResult,
   PurchaseSummary,
   Recipe,
   RegisterCompanyResult,
@@ -308,4 +310,22 @@ export const settingsApi = {
 export const auditApi = {
   list: (query?: ListQuery) =>
     http.get<PagedResult<AuditEntry>>('/auditoria', { params: clean(query) }).then((r) => r.data),
+}
+
+export const receivedDocumentsApi = {
+  list: (query?: ListQuery) =>
+    http.get<PagedResult<ReceivedDocument>>('/facturas-recibidas', { params: clean(query) }).then((r) => r.data),
+  get: (id: number) => http.get<ReceivedDocument>(`/facturas-recibidas/${id}`).then((r) => r.data),
+  address: () => http.get<{ address: string | null; configured: boolean }>('/facturas-recibidas/direccion').then((r) => r.data),
+  upload: (files: File[]) => {
+    const form = new FormData()
+    files.forEach((file) => form.append('files', file))
+    return http
+      .post<UploadResult[]>('/facturas-recibidas/subir', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .then((r) => r.data)
+  },
+  importDocument: (id: number, payload: Record<string, unknown>) =>
+    http.post<ReceivedDocument>(`/facturas-recibidas/${id}/importar`, payload).then((r) => r.data),
+  discard: (id: number) => http.post<ReceivedDocument>(`/facturas-recibidas/${id}/descartar`).then((r) => r.data),
+  xml: (id: number) => http.get<string>(`/facturas-recibidas/${id}/xml`, { responseType: 'text' }).then((r) => r.data),
 }

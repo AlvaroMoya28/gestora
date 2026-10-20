@@ -58,6 +58,7 @@ public static class ModuleCatalog
 
         new("receivables", "Cuentas por cobrar", "Finanzas",       "arrow-in",  true,  RoleScope.Company),
         new("payables",    "Cuentas por pagar",  "Finanzas",       "arrow-out", true,  RoleScope.Company),
+        new("einvoices",   "Facturas recibidas", "Finanzas",       "inbox",     true,  RoleScope.Company),
         new("income",      "Ingresos",           "Finanzas",       "plus",      true,  RoleScope.Company),
         new("expenses",    "Gastos",             "Finanzas",       "minus",     true,  RoleScope.Company),
 

@@ -117,6 +117,12 @@ const routes: RouteRecordRaw[] = [
         meta: { module: 'purchases', title: 'Compras' },
       },
       {
+        path: 'facturas-recibidas',
+        name: 'einvoices',
+        component: () => import('@/views/ReceivedDocumentsView.vue'),
+        meta: { module: 'einvoices', title: 'Facturas recibidas' },
+      },
+      {
         path: 'cuentas-por-pagar',
         name: 'payables',
         component: () => import('@/views/PayablesView.vue'),

@@ -309,6 +309,10 @@ namespace Gestora.API.Migrations
                     b.Property<decimal>("DefaultTaxRate")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("InboundToken")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -338,6 +342,9 @@ namespace Gestora.API.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AccountEmail")
+                        .IsUnique();
+
+                    b.HasIndex("InboundToken")
                         .IsUnique();
 
                     b.ToTable("Companies");
@@ -1107,6 +1114,117 @@ namespace Gestora.API.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Receipts");
+                });
+
+            modelBuilder.Entity("Gestora.API.Domain.ReceivedDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Consecutive")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CreditDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("varchar(3)");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<bool>("IsCredit")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("IssueDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("IssuerEmail")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("IssuerName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("IssuerTaxId")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("LinesJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("PurchaseId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SenderEmail")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Xml")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PurchaseId");
+
+                    b.HasIndex("CompanyId", "Key")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "Status", "IssueDate");
+
+                    b.ToTable("ReceivedDocuments");
                 });
 
             modelBuilder.Entity("Gestora.API.Domain.Recipe", b =>
@@ -2126,6 +2244,16 @@ namespace Gestora.API.Migrations
                     b.Navigation("AccountReceivable");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Gestora.API.Domain.ReceivedDocument", b =>
+                {
+                    b.HasOne("Gestora.API.Domain.Purchase", "Purchase")
+                        .WithMany()
+                        .HasForeignKey("PurchaseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Purchase");
                 });
 
             modelBuilder.Entity("Gestora.API.Domain.Recipe", b =>
