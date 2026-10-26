@@ -37,9 +37,11 @@ Todos los módulos del menú están implementados y operativos.
 | **Comercial** | Clientes y proveedores con condiciones de crédito |
 | **Catálogo** | Productos, categorías y unidades · inventario por movimientos con ajuste por conteo |
 | **Operación** | Compras · ventas · producción con recetas · reparaciones |
+| **Facturas recibidas** | Bandeja de comprobantes electrónicos de proveedores (subida de XML o correo entrante), lectura 4.3/4.4 e importación como compra |
 | **Finanzas** | Cuentas por cobrar y por pagar con abonos · libro de ingresos y gastos |
 | **Análisis** | Ocho reportes con exportación a CSV · panel con alertas |
 | **Administración** | Usuarios · auditoría · configuración de la empresa |
+| **Ayuda** | Recorrido guiado de bienvenida, botón «Cómo se usa» y módulo de ayuda por pantalla |
 
 Pendiente: facturación electrónica de Hacienda, devoluciones, auto-registro con
 pasarela de pago y costeo promedio. Ver [`docs/MODELO-DATOS.md`](docs/MODELO-DATOS.md).

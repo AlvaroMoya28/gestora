@@ -30,6 +30,8 @@ EMPRESA (todo lleva CompanyId y filtro global)
                   (asiento de caja: ingreso o gasto)
 
   AuditLog                            bitácora de operaciones sensibles
+
+  ReceivedDocument ──► Purchase       comprobante electrónico de un proveedor, importado como compra
 ```
 
 ### Campos comunes
@@ -174,6 +176,22 @@ y valor nuevo**, IP y fecha. Se escribe en la misma transacción que la operaci�
 
 ---
 
+## 5.1 Facturas electrónicas recibidas
+
+**`receiveddocuments`** — comprobante electrónico de un proveedor, ya sea subido a mano
+o llegado por correo entrante. Guarda el **XML original tal cual llegó** (es lo que
+tiene validez fiscal) y además los datos ya interpretados (`IssuerTaxId`, `Total`,
+`LinesJson`...) para listarlo y revisarlo sin volver a parsear el XML cada vez. `Key`
+(la clave de 50 dígitos de Hacienda) es única por empresa, así que reenviar el mismo
+comprobante no lo duplica.
+
+`Status` va de `Pending` a `Imported` (cuando alguien lo convierte en `Purchase`, con
+sus líneas y proveedor ya resueltos) o a `Discarded` (no es de la empresa, duplicado, no
+aplica). Es la bandeja de entrada antes de convertirse en una compra del módulo de
+operación — no reemplaza `Purchase`, lo alimenta.
+
+---
+
 ## 6. Reglas que el modelo hace cumplir
 
 1. Ninguna consulta cruza empresas: filtro global sobre `CompanyId`.
@@ -196,7 +214,8 @@ importe.
 ## 7. Lo que falta
 
 ```
-Facturación electrónica   Hacienda CR: firma, envío y respuesta
+Facturación electrónica de salida   Hacienda CR: firma, envío y respuesta de lo que
+                                     la empresa emite (la recepción ya existe: ver 5.1)
 Devoluciones              ReturnIn / ReturnOut ya existen como MovementType
 Órdenes previas           CustomerOrder / PurchaseOrder antes del documento firme
 Costeo promedio           hoy el costo del producto es el del último ingreso

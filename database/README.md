@@ -191,12 +191,19 @@ y las ocho unidades de medida iniciales.
 | Tabla | Para qué sirve |
 |---|---|
 | `companies` | Empresa inquilina. Toda la información cuelga de aquí. |
-| `roles`, `rolepermissions` | Roles y qué módulo puede leer o editar cada uno. |
-| `users`, `refreshtokens` | Cuentas de acceso y sesiones abiertas. |
+| `plans`, `subscriptions`, `subscriptionpayments` | Planes de Gestora, suscripción de cada empresa y sus cobros. |
+| `roles`, `rolepermissions` | Catálogo fijo de roles (plataforma y empresa) y qué módulo puede leer o editar cada uno. |
+| `users`, `refreshtokens` | Cuentas de acceso y sesiones abiertas. `CompanyId` nulo en los usuarios de Gestora. |
 | `categories`, `units` | Catálogos auxiliares de productos. |
 | `customers`, `suppliers` | Clientes y proveedores. |
 | `products` | Productos terminados, materias primas y servicios. |
 | `inventorymovements` | Historial de existencias: cada entrada, salida y ajuste. |
+| `purchases`, `purchaseitems`, `accountspayable`, `payments` | Compras a proveedores y lo que se les debe. |
+| `sales`, `saleitems`, `accountsreceivable`, `receipts` | Ventas a clientes y lo que falta por cobrar. |
+| `recipes`, `recipeitems`, `productionorders`, `productionmaterials` | Recetas de fabricación y órdenes de producción. |
+| `repairorders`, `repairmaterials` | Órdenes de reparación de artículos del cliente. |
+| `financecategories`, `financeentries` | Libro de caja: ingresos y gastos, manuales o generados por cobros/pagos. |
+| `receiveddocuments` | Facturas electrónicas de proveedores recibidas por correo o subidas a mano, antes de importarse como compra. |
 | `auditlogs` | Bitácora de operaciones sensibles. |
 
 Detalle del modelo y decisiones de diseño: [`docs/MODELO-DATOS.md`](../docs/MODELO-DATOS.md).
