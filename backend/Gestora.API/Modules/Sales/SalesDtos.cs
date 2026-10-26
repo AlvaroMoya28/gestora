@@ -8,7 +8,7 @@ namespace Gestora.API.Modules.Sales;
 
 public record SaleItemDto(int Id, int ProductId, string ProductCode, string ProductName,
     string UnitAbbreviation, decimal Quantity, decimal UnitPrice, decimal DiscountRate,
-    decimal TaxRate, decimal Subtotal);
+    decimal TaxRate, decimal Subtotal, int? ProductionOrderId, string? ProductionOrderNumber);
 
 public record SaleDto(int Id, string Number, int CustomerId, string CustomerName, DateTime Date,
     SaleStatus Status, string StatusName, PaymentTerm PaymentTerm, int CreditDays, DateTime DueDate,
@@ -34,6 +34,9 @@ public class SaleItemRequest
 
     [Range(0, 100, ErrorMessage = "El impuesto debe estar entre 0 y 100.")]
     public decimal TaxRate { get; set; }
+
+    /// <summary>Si la línea se cargó desde «Producciones listas», la orden de origen.</summary>
+    public int? ProductionOrderId { get; set; }
 }
 
 public class SaleRequest

@@ -179,10 +179,27 @@ public class SaleService(GestoraDbContext db, IAuditService audit, InventoryServ
         var productIds = items.Select(i => i.ProductId).Distinct().ToList();
         var products = await db.Products.Where(p => productIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
 
+        var orderIds = items.Where(i => i.ProductionOrderId.HasValue)
+            .Select(i => i.ProductionOrderId!.Value).Distinct().ToList();
+        var orders = orderIds.Count == 0
+            ? new Dictionary<int, ProductionOrder>()
+            : await db.ProductionOrders.Where(o => orderIds.Contains(o.Id)).ToDictionaryAsync(o => o.Id);
+
         foreach (var line in items)
         {
             if (!products.TryGetValue(line.ProductId, out var product) || !product.IsActive)
                 throw new ApiException("Uno de los productos seleccionados no es válido.");
+
+            int? productionOrderId = null;
+            if (line.ProductionOrderId is { } orderId)
+            {
+                if (!orders.TryGetValue(orderId, out var order) || order.Status != ProductionStatus.Completed)
+                    throw new ApiException("La orden de producción seleccionada ya no está disponible.");
+                if (order.ProductId != line.ProductId)
+                    throw new ApiException("La orden de producción no corresponde al producto de la línea.");
+
+                productionOrderId = order.Id;
+            }
 
             var gross = line.Quantity * line.UnitPrice;
             var subtotal = gross - gross * line.DiscountRate / 100m;
@@ -195,7 +212,8 @@ public class SaleService(GestoraDbContext db, IAuditService audit, InventoryServ
                 DiscountRate = line.DiscountRate,
                 TaxRate = line.TaxRate,
                 Subtotal = subtotal,
-                UnitCost = product.Cost
+                UnitCost = product.Cost,
+                ProductionOrderId = productionOrderId
             });
         }
 
@@ -221,6 +239,7 @@ public class SaleService(GestoraDbContext db, IAuditService audit, InventoryServ
         await db.Sales
             .Include(s => s.Customer)
             .Include(s => s.Items).ThenInclude(i => i.Product).ThenInclude(p => p.Unit)
+            .Include(s => s.Items).ThenInclude(i => i.ProductionOrder)
             .FirstOrDefaultAsync(s => s.Id == id)
         ?? throw ApiException.NotFound("La venta");
 
@@ -242,6 +261,7 @@ public class SaleService(GestoraDbContext db, IAuditService audit, InventoryServ
         s.Status, StatusName(s.Status), s.PaymentTerm, s.CreditDays, DueDateOf(s),
         s.Subtotal, s.DiscountAmount, s.TaxAmount, s.Total, s.Notes,
         s.Items.Select(i => new SaleItemDto(i.Id, i.ProductId, i.Product.Code, i.Product.Name,
-            i.Product.Unit.Abbreviation, i.Quantity, i.UnitPrice, i.DiscountRate, i.TaxRate, i.Subtotal))
+            i.Product.Unit.Abbreviation, i.Quantity, i.UnitPrice, i.DiscountRate, i.TaxRate, i.Subtotal,
+            i.ProductionOrderId, i.ProductionOrder?.Number))
             .ToList());
 }

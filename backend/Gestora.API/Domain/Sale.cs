@@ -65,4 +65,12 @@ public class SaleItem : BaseEntity
     /// calcular la utilidad de la venta aunque el costo del producto cambie después.
     /// </summary>
     public decimal UnitCost { get; set; }
+
+    /// <summary>
+    /// Orden de producción de la que salió esta línea, si se cargó desde «Producciones
+    /// listas». Es solo una etiqueta informativa: el inventario ya entró al terminar la
+    /// orden, así que no cambia cómo se descuenta esta venta.
+    /// </summary>
+    public int? ProductionOrderId { get; set; }
+    public ProductionOrder? ProductionOrder { get; set; }
 }

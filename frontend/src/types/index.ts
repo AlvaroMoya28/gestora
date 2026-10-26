@@ -328,6 +328,8 @@ export interface SaleItem {
   discountRate: number
   taxRate: number
   subtotal: number
+  productionOrderId: number | null
+  productionOrderNumber: string | null
 }
 
 export interface Sale {
@@ -486,6 +488,19 @@ export interface ProductionOrderSummary {
   statusName: string
   date: string
   totalCost: number
+}
+
+/** Orden terminada que ninguna venta ha facturado todavía. */
+export interface ProductionReadyForSale {
+  id: number
+  number: string
+  productId: number
+  productCode: string
+  productName: string
+  unitAbbreviation: string
+  producedQuantity: number
+  unitCost: number
+  completedAt: string
 }
 
 // ---------------------------------------------------------- Reparaciones ----

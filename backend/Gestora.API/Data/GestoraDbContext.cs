@@ -195,6 +195,8 @@ public class GestoraDbContext : DbContext
             .HasForeignKey(i => i.SaleId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<SaleItem>().HasOne(i => i.Product).WithMany().HasForeignKey(i => i.ProductId)
             .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<SaleItem>().HasOne(i => i.ProductionOrder).WithMany().HasForeignKey(i => i.ProductionOrderId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         b.Entity<AccountReceivable>().HasIndex(a => new { a.CompanyId, a.Status, a.DueDate });
         b.Entity<AccountReceivable>().HasOne(a => a.Customer).WithMany().HasForeignKey(a => a.CustomerId)

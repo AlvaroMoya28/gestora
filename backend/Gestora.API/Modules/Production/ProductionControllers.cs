@@ -19,6 +19,12 @@ public class ProductionController(ProductionService service) : ControllerBase
     [RequireModule("production")]
     public async Task<ActionResult<ProductionOrderDto>> Get(int id) => Ok(await service.GetAsync(id));
 
+    /// <summary>Atajo para el formulario de ventas: órdenes terminadas que aún no se facturan.</summary>
+    [HttpGet("ordenes/listas-para-venta")]
+    [RequireModule("sales")]
+    public async Task<ActionResult<IReadOnlyList<ProductionReadyForSaleDto>>> ReadyForSale()
+        => Ok(await service.ListReadyForSaleAsync());
+
     [HttpPost("ordenes")]
     [RequireModule("production", write: true)]
     public async Task<ActionResult<ProductionOrderDto>> Create([FromBody] ProductionOrderRequest request)

@@ -139,6 +139,27 @@ public class ProductionService(GestoraDbContext db, IAuditService audit, Invento
 
     public async Task<ProductionOrderDto> GetAsync(int id) => MapOrder(await LoadOrderAsync(id));
 
+    /// <summary>
+    /// Órdenes terminadas que ninguna venta activa ha facturado todavía. Alimenta el
+    /// atajo «Producciones listas» del formulario de ventas. Una vez que una línea de
+    /// venta se liga a la orden, deja de aparecer aquí; si esa venta se cancela, vuelve.
+    /// </summary>
+    public async Task<IReadOnlyList<ProductionReadyForSaleDto>> ListReadyForSaleAsync()
+    {
+        var rows = await db.ProductionOrders.AsNoTracking()
+            .Include(o => o.Product).ThenInclude(p => p.Unit)
+            .Where(o => o.Status == ProductionStatus.Completed)
+            .Where(o => !db.SaleItems.Any(i =>
+                i.ProductionOrderId == o.Id && i.Sale.Status != SaleStatus.Cancelled))
+            .OrderByDescending(o => o.CompletedAt)
+            .Take(100)
+            .ToListAsync();
+
+        return rows.Select(o => new ProductionReadyForSaleDto(o.Id, o.Number, o.ProductId,
+            o.Product.Code, o.Product.Name, o.Product.Unit.Abbreviation, o.ProducedQuantity,
+            o.UnitCost, o.CompletedAt ?? o.Date)).ToList();
+    }
+
     public async Task<ProductionOrderDto> CreateAsync(ProductionOrderRequest request)
     {
         var product = await ResolveOutputProductAsync(request.ProductId);

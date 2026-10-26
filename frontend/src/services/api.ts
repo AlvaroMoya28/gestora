@@ -21,6 +21,7 @@ import type {
   Product,
   ProductionOrder,
   ProductionOrderSummary,
+  ProductionReadyForSale,
   Purchase,
   ReceivedDocument,
   UploadResult,
@@ -223,6 +224,8 @@ export const productionApi = {
   list: (query?: ListQuery) =>
     http.get<PagedResult<ProductionOrderSummary>>('/produccion/ordenes', { params: clean(query) }).then((r) => r.data),
   get: (id: number) => http.get<ProductionOrder>(`/produccion/ordenes/${id}`).then((r) => r.data),
+  readyForSale: () =>
+    http.get<ProductionReadyForSale[]>('/produccion/ordenes/listas-para-venta').then((r) => r.data),
   create: (payload: Record<string, unknown>) =>
     http.post<ProductionOrder>('/produccion/ordenes', payload).then((r) => r.data),
   update: (id: number, payload: Record<string, unknown>) =>

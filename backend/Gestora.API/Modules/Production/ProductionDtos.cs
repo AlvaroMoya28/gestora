@@ -58,6 +58,15 @@ public record ProductionOrderDto(int Id, string Number, int ProductId, string Pr
 public record ProductionOrderSummaryDto(int Id, string Number, string ProductName, decimal Quantity,
     decimal ProducedQuantity, ProductionStatus Status, string StatusName, DateTime Date, decimal TotalCost);
 
+/// <summary>
+/// Orden terminada que todavía no se facturó a ningún cliente. Alimenta el atajo
+/// «Producciones listas» del formulario de ventas: elegir una carga el producto y la
+/// cantidad producida como línea, sin buscarlo de nuevo en el catálogo.
+/// </summary>
+public record ProductionReadyForSaleDto(int Id, string Number, int ProductId, string ProductCode,
+    string ProductName, string UnitAbbreviation, decimal ProducedQuantity, decimal UnitCost,
+    DateTime CompletedAt);
+
 public class ProductionMaterialRequest
 {
     [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un material.")]

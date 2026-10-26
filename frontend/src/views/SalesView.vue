@@ -16,11 +16,19 @@ import {
   usePaymentTerms,
 } from '@/composables/usePaymentTerms'
 import { useResourceList } from '@/composables/useResourceList'
-import { customersApi, productsApi, salesApi } from '@/services/api'
+import { customersApi, productionApi, productsApi, salesApi } from '@/services/api'
 import { errorMessage, fieldErrors } from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
-import { PaymentTerm, SaleStatus, type Customer, type Product, type Sale, type SaleSummary } from '@/types'
+import {
+  PaymentTerm,
+  SaleStatus,
+  type Customer,
+  type Product,
+  type ProductionReadyForSale,
+  type Sale,
+  type SaleSummary,
+} from '@/types'
 
 const auth = useAuthStore()
 const notifications = useNotificationStore()
@@ -31,6 +39,7 @@ const list = useResourceList<SaleSummary>(salesApi.list, { initialFilters: { sta
 const customers = ref<Customer[]>([])
 const products = ref<Product[]>([])
 const sellable = computed(() => products.value.filter((p) => p.isActive))
+const readyProductions = ref<ProductionReadyForSale[]>([])
 
 const columns: Column[] = [
   { key: 'number', label: 'Número', width: '105px' },
@@ -55,6 +64,8 @@ interface ItemRow {
   discountRate: number
   taxRate: number
   stock: number
+  productionOrderId: number | null
+  productionOrderNumber: string | null
 }
 
 const emptyRow = (): ItemRow => {
@@ -66,7 +77,67 @@ const emptyRow = (): ItemRow => {
     discountRate: 0,
     taxRate: first?.taxRate ?? 0,
     stock: first?.stock ?? 0,
+    productionOrderId: null,
+    productionOrderNumber: null,
   }
+}
+
+/**
+ * Producciones listas disponibles para una línea: las que nadie ha facturado todavía,
+ * menos las que ya se eligieron en otra línea de esta misma venta, más la propia línea
+ * si ya venía de una producción (para no desaparecer del selector al editar).
+ */
+function readyOptionsFor(row: ItemRow) {
+  const usedElsewhere = new Set(
+    rows.value.filter((r) => r !== row && r.productionOrderId).map((r) => r.productionOrderId),
+  )
+  const options = readyProductions.value.filter((po) => !usedElsewhere.has(po.id))
+
+  if (row.productionOrderId && !options.some((po) => po.id === row.productionOrderId)) {
+    options.unshift({
+      id: row.productionOrderId,
+      number: row.productionOrderNumber ?? `#${row.productionOrderId}`,
+      productId: row.productId,
+      productCode: products.value.find((p) => p.id === row.productId)?.code ?? '',
+      productName: products.value.find((p) => p.id === row.productId)?.name ?? '',
+      unitAbbreviation: '',
+      producedQuantity: row.quantity,
+      unitCost: 0,
+      completedAt: '',
+    })
+  }
+  return options
+}
+
+/** Valor combinado del <select>: producto normal por id, producción lista como «po-{id}». */
+const rowSelection = (row: ItemRow) =>
+  row.productionOrderId ? `po-${row.productionOrderId}` : String(row.productId)
+
+function onRowSelect(row: ItemRow, event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+
+  if (value.startsWith('po-')) {
+    const order = readyProductions.value.find((po) => po.id === Number(value.slice(3)))
+    if (!order) return
+
+    row.productionOrderId = order.id
+    row.productionOrderNumber = order.number
+    row.productId = order.productId
+    row.quantity = order.producedQuantity
+
+    const product = products.value.find((p) => p.id === order.productId)
+    if (product) {
+      row.unitPrice = product.price
+      row.taxRate = product.taxRate
+      row.stock = product.stock
+    }
+    return
+  }
+
+  row.productionOrderId = null
+  row.productionOrderNumber = null
+  row.productId = Number(value)
+  onProductChange(row)
 }
 
 const modalOpen = ref(false)
@@ -125,6 +196,7 @@ function openCreate() {
   onCustomerChange()
   rows.value = [emptyRow()]
   modalOpen.value = true
+  reloadReadyProductions()
 }
 
 async function openView(summary: SaleSummary) {
@@ -149,8 +221,11 @@ async function openView(summary: SaleSummary) {
     discountRate: item.discountRate,
     taxRate: item.taxRate,
     stock: products.value.find((p) => p.id === item.productId)?.stock ?? 0,
+    productionOrderId: item.productionOrderId,
+    productionOrderNumber: item.productionOrderNumber,
   }))
   modalOpen.value = true
+  if (sale.status === SaleStatus.Draft) reloadReadyProductions()
 }
 
 const addRow = () => rows.value.push(emptyRow())
@@ -174,6 +249,7 @@ async function save() {
         unitPrice: Number(row.unitPrice),
         discountRate: Number(row.discountRate),
         taxRate: Number(row.taxRate),
+        productionOrderId: row.productionOrderId,
       })),
     }
 
@@ -207,7 +283,7 @@ async function doConfirm() {
     await salesApi.confirm(confirming.value.id)
     notifications.success('Venta confirmada: se descargó el inventario y se generó la cuenta por cobrar.')
     confirming.value = null
-    await Promise.all([list.load(), reloadProducts()])
+    await Promise.all([list.load(), reloadProducts(), reloadReadyProductions()])
   } catch (error) {
     notifications.error(errorMessage(error))
   } finally {
@@ -222,7 +298,7 @@ async function doCancel() {
     await salesApi.cancel(cancelling.value.id)
     notifications.success('Venta cancelada.')
     cancelling.value = null
-    await list.load()
+    await Promise.all([list.load(), reloadReadyProductions()])
   } catch (error) {
     notifications.error(errorMessage(error))
   } finally {
@@ -233,11 +309,15 @@ async function doCancel() {
 const reloadProducts = () =>
   productsApi.list({ pageSize: 200, active: true }).then((r) => (products.value = r.items))
 
+const reloadReadyProductions = () =>
+  productionApi.readyForSale().then((r) => (readyProductions.value = r))
+
 onMounted(async () => {
   await Promise.all([
     list.load(),
     customersApi.list({ pageSize: 200, active: true }).then((r) => (customers.value = r.items)),
     reloadProducts(),
+    reloadReadyProductions(),
   ]).catch((error) => notifications.error(errorMessage(error)))
 })
 </script>
@@ -404,17 +484,29 @@ onMounted(async () => {
           <div v-for="(row, index) in rows" :key="index" class="item-row">
             <div>
               <select
-                v-model.number="row.productId"
+                :value="rowSelection(row)"
                 class="control"
                 :disabled="!isDraft"
-                @change="onProductChange(row)"
+                @change="onRowSelect(row, $event)"
               >
-                <option :value="0" disabled>Seleccione…</option>
-                <option v-for="product in sellable" :key="product.id" :value="product.id">
-                  {{ product.code }} · {{ product.name }}
-                </option>
+                <option value="0" disabled>Seleccione…</option>
+                <optgroup v-if="readyOptionsFor(row).length" label="Producciones listas">
+                  <option v-for="po in readyOptionsFor(row)" :key="'po-' + po.id" :value="'po-' + po.id">
+                    {{ po.number }} · {{ po.productName }} ({{ po.producedQuantity }})
+                  </option>
+                </optgroup>
+                <optgroup label="Productos">
+                  <option v-for="product in sellable" :key="product.id" :value="String(product.id)">
+                    {{ product.code }} · {{ product.name }}
+                  </option>
+                </optgroup>
               </select>
-              <small class="stock muted">Existencia: {{ row.stock }}</small>
+              <small class="stock muted">
+                <template v-if="row.productionOrderNumber">
+                  De la orden {{ row.productionOrderNumber }} · existencia: {{ row.stock }}
+                </template>
+                <template v-else>Existencia: {{ row.stock }}</template>
+              </small>
             </div>
             <input v-model.number="row.quantity" class="control text-right" type="number" min="0.0001" step="any" :disabled="!isDraft" />
             <input v-model.number="row.unitPrice" class="control text-right" type="number" min="0" step="0.01" :disabled="!isDraft" />

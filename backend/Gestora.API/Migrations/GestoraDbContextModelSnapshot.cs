@@ -1693,6 +1693,9 @@ namespace Gestora.API.Migrations
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ProductionOrderId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
 
@@ -1720,6 +1723,8 @@ namespace Gestora.API.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ProductId");
+
+                    b.HasIndex("ProductionOrderId");
 
                     b.HasIndex("SaleId");
 
@@ -2357,6 +2362,11 @@ namespace Gestora.API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Gestora.API.Domain.ProductionOrder", "ProductionOrder")
+                        .WithMany()
+                        .HasForeignKey("ProductionOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Gestora.API.Domain.Sale", "Sale")
                         .WithMany("Items")
                         .HasForeignKey("SaleId")
@@ -2364,6 +2374,8 @@ namespace Gestora.API.Migrations
                         .IsRequired();
 
                     b.Navigation("Product");
+
+                    b.Navigation("ProductionOrder");
 
                     b.Navigation("Sale");
                 });
